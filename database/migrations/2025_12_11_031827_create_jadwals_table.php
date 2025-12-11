@@ -10,22 +10,22 @@ return new class extends Migration
     {
         Schema::create('jadwals', function (Blueprint $table) {
             $table->id();
-            $table->date('tanggal')->nullable(); // untuk filter berdasarkan tanggal
-            $table->string('hari', 10); // Senin, Selasa, dll
-            $table->time('jam_mulai'); // 07:00:00
-            $table->time('jam_selesai'); // 08:00:00
-            $table->string('ruangan', 50); // 3.1, 4.3, Lab MMC, dll
+            $table->date('tanggal');
+            $table->string('hari', 10);
+            $table->string('jam_mulai', 5); // Format: 07:00
+            $table->string('jam_selesai', 5); // Format: 08:00
+            $table->string('ruangan', 50);
 
             // Data dari CSV
-            $table->string('keterangan')->nullable(); // Jember, Bondowoso
-            $table->string('prodi', 10); // TIF, MIF, TKK
-            $table->integer('semester'); // 1, 3, 5
-            $table->string('golongan', 10); // A, B, C, INT, BWS
-            $table->string('kode_mk', 20); // TIF110803
-            $table->string('mata_kuliah', 100);
-            $table->integer('sks');
+            $table->string('keterangan')->nullable();
+            $table->string('prodi', 10);
+            $table->integer('semester');
+            $table->string('golongan', 10);
+            $table->string('kode_mk', 50)->nullable();
+            $table->string('mata_kuliah', 200);
+            $table->integer('sks')->default(1);
             $table->text('dosen_koordinator')->nullable();
-            $table->text('team_teaching')->nullable(); // disimpan sebagai JSON
+            $table->json('team_teaching')->nullable();
             $table->text('teknisi')->nullable();
 
             $table->timestamps();

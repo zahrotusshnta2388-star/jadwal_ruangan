@@ -5,7 +5,12 @@
 @section('page-subtitle', 'Sistem Informasi Jadwal Penggunaan Ruangan')
 
 @section('content')
-    <div class="row">
+
+
+
+    <div>Halaman beranda</div>
+
+    {{-- <div class="row">
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
@@ -103,5 +108,5 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
 @endsection

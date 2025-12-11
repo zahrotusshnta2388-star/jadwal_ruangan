@@ -28,6 +28,19 @@
                         </div>
                     @endif
 
+                    @if (session('debug_info'))
+                        <div class="card mt-4">
+                            <div class="card-header bg-warning text-dark">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-bug"></i> Debug Information
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <pre style="font-size: 0.8rem; max-height: 300px; overflow-y: auto;">{{ print_r(session('debug_info'), true) }}</pre>
+                            </div>
+                        </div>
+                    @endif
+
                     <form action="{{ route('admin.upload.process') }}" method="POST" enctype="multipart/form-data"
                         id="uploadForm">
                         @csrf
@@ -59,6 +72,23 @@
                             @enderror
                             <div class="form-text">
                                 Pilih tanggal dimana jadwal ini berlaku.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="action" class="form-label">
+                                <i class="bi bi-arrow-repeat"></i> Aksi Data
+                            </label>
+                            <select class="form-select @error('action') is-invalid @enderror" id="action" name="action"
+                                required>
+                                <option value="append">Tambahkan ke data yang ada</option>
+                                <option value="replace">Ganti data pada tanggal yang sama</option>
+                            </select>
+                            @error('action')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text">
+                                Pilih "Ganti data" untuk menghapus data lama pada tanggal yang sama
                             </div>
                         </div>
 
@@ -107,8 +137,9 @@
                             <code>No, Keterangan, Prodi, Smt, gol, Kode, MK, SKS, Dosen Koordinator, Team Teaching, Hari,
                                 Jam, Ruang</code>
                             <p class="mt-2 mb-0">Download contoh file:
-                                <a href="#" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-download"></i> template.csv
+                                <a href="{{ route('admin.download.template') }}" class="btn btn-sm btn-outline-primary"
+                                    id="downloadTemplate">
+                                    <i class="bi bi-download"></i> template_jadwal.csv
                                 </a>
                             </p>
                         </div>
@@ -206,6 +237,68 @@
             </div>
         </div>
     </div>
+    @if (session('import_result'))
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div
+                        class="card-header {{ session('import_result.failed') > 0 ? 'bg-warning' : 'bg-success' }} text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Hasil Import
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert {{ session('import_result.failed') > 0 ? 'alert-warning' : 'alert-success' }}">
+                            <h6>Ringkasan Import:</h6>
+                            <ul class="mb-0">
+                                <li>Total data dalam file: {{ session('import_result.total') }}</li>
+                                <li>Berhasil diimport: {{ session('import_result.success') }}</li>
+                                <li>Gagal diimport: {{ session('import_result.failed') }}</li>
+                            </ul>
+                        </div>
+
+                        @if (session('import_result.failed') > 0)
+                            <h6>Data yang gagal diimport:</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Baris</th>
+                                            <th>Alasan</th>
+                                            <th>Prodi</th>
+                                            <th>Ruang</th>
+                                            <th>Jam</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (session('import_result.failed_rows') as $failed)
+                                            <tr>
+                                                <td>{{ $failed['row'] }}</td>
+                                                <td class="text-danger">{{ $failed['reason'] }}</td>
+                                                <td>{{ $failed['data']['Prodi'] ?? '-' }}</td>
+                                                <td>{{ $failed['data']['Ruang'] ?? '-' }}</td>
+                                                <td>{{ $failed['data']['Jam'] ?? '-' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p class="text-muted">* Hanya menampilkan 10 baris pertama yang gagal</p>
+                        @endif
+
+                        <div class="d-flex justify-content-between mt-3">
+                            <a href="{{ route('ruangan.index') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye"></i> Lihat Jadwal
+                            </a>
+                            <a href="{{ route('admin.index') }}" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Selesai
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 @endsection
 
 @section('scripts')
@@ -278,6 +371,12 @@
                 $('#validTime').removeClass('bg-secondary').addClass('bg-success').text('Valid');
 
                 alert('Validasi berhasil! File siap diupload.');
+            });
+
+            // Download template
+            $('#downloadTemplate').on('click', function(e) {
+                e.preventDefault();
+                window.location.href = "{{ route('admin.download.template') }}";
             });
         });
     </script>

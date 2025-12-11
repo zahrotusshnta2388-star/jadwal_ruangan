@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Jadwal; // Jangan lupa import model
 
 class RuanganController extends Controller
 {
@@ -13,102 +14,151 @@ class RuanganController extends Controller
     {
         // Get date filter or use today
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
+        $gedung = $request->input('gedung', '');
 
-        // Sample data for testing (will be replaced with database later)
-        $jadwals = $this->getSampleData();
+        // Query data dari database berdasarkan tanggal
+        $query = Jadwal::where('tanggal', $selectedDate);
 
-        // Sample rooms
-        $ruangans = ['3.1', '3.2', '3.3', '3.4', '3.5', '3.6', '4.1', '4.2', '4.3'];
+        // Filter berdasarkan gedung jika dipilih
+        if (!empty($gedung)) {
+            if ($gedung === 'Lab') {
+                // Untuk filter laboratorium
+                $query->where(function ($q) {
+                    $q->where('ruangan', 'LIKE', 'Lab%')
+                        ->orWhere('ruangan', 'LIKE', '%Lab%');
+                });
+            } elseif ($gedung === 'F') {
+                // Untuk gedung F
+                $query->where('ruangan', 'LIKE', 'F%');
+            } else {
+                // Untuk gedung angka (3, 4, dll)
+                $query->where('ruangan', 'LIKE', $gedung . '.%');
+            }
+        }
 
-        // Organize data by room and time
+        // Ambil data jadwal
+        $jadwals = $query->orderBy('ruangan')
+            ->orderBy('jam_mulai')
+            ->get();
+
+        // Jika tidak ada data untuk tanggal ini, coba hari dari data
+        if ($jadwals->isEmpty()) {
+            // Cari tanggal terdekat yang ada data
+            $nearestDate = Jadwal::where('tanggal', '>=', $selectedDate)
+                ->orderBy('tanggal')
+                ->value('tanggal');
+
+            if ($nearestDate) {
+                // Redirect ke tanggal terdekat yang ada data
+                return redirect()->route('ruangan.index', [
+                    'tanggal' => $nearestDate,
+                    'gedung' => $gedung
+                ]);
+            }
+        }
+
+        // Dapatkan daftar ruangan unik dari database
+        $ruangans = Jadwal::where('tanggal', $selectedDate)
+            ->select('ruangan')
+            ->distinct()
+            ->orderBy('ruangan')
+            ->pluck('ruangan')
+            ->toArray();
+
+        // Jika tidak ada ruangan, gunakan daftar default
+        if (empty($ruangans)) {
+            $ruangans = $this->getDefaultRuanganList($gedung);
+        }
+
+        // Organize data into grid format
         $scheduleGrid = $this->organizeScheduleGrid($jadwals, $ruangans);
+
+        // Get statistics
+        $totalKelas = $jadwals->count();
+        $totalRuangan = count($ruangans);
+        $prodiList = $jadwals->unique('prodi')->pluck('prodi')->toArray();
 
         return view('ruangan.index', [
             'selectedDate' => $selectedDate,
+            'gedung' => $gedung,
             'ruangans' => $ruangans,
             'jadwals' => $jadwals,
             'scheduleGrid' => $scheduleGrid,
-            'timeSlots' => $this->getTimeSlots()
+            'timeSlots' => $this->getTimeSlots(),
+            'totalKelas' => $totalKelas,
+            'totalRuangan' => $totalRuangan,
+            'prodiList' => $prodiList,
+            'statistics' => $this->getStatistics($jadwals)
         ]);
     }
 
     /**
-     * Get sample schedule data for testing.
+     * Get default room list based on building filter
      */
-    private function getSampleData()
+    private function getDefaultRuanganList($gedung)
     {
-        return [
-            (object)[
-                'id' => 1,
-                'ruangan' => '3.1',
-                'prodi' => 'TIF',
-                'semester' => 3,
-                'golongan' => 'C',
-                'mata_kuliah' => 'Matematika Diskrit',
-                'jam_mulai' => '07:00',
-                'jam_selesai' => '09:00',
-                'kode_mk' => 'TIF130702',
-                'sks' => 2,
-                'dosen_koordinator' => 'Moh. Munih Dian W., S.Kom, MT',
-                'hari' => 'Senin'
-            ],
-            (object)[
-                'id' => 2,
-                'ruangan' => '3.1',
-                'prodi' => 'TIF',
-                'semester' => 3,
-                'golongan' => 'B',
-                'mata_kuliah' => 'Algoritma Pemrograman',
-                'jam_mulai' => '10:00',
-                'jam_selesai' => '12:00',
-                'kode_mk' => 'TIF130701',
-                'sks' => 3,
-                'dosen_koordinator' => 'Dr. Denny Trias Utomo, S.Si., M.T.',
-                'hari' => 'Senin'
-            ],
-            (object)[
-                'id' => 3,
-                'ruangan' => '3.2',
-                'prodi' => 'MIF',
-                'semester' => 3,
-                'golongan' => 'A',
-                'mata_kuliah' => 'Manajemen Operasional',
-                'jam_mulai' => '07:00',
-                'jam_selesai' => '09:00',
-                'kode_mk' => 'MIF130703',
-                'sks' => 2,
-                'dosen_koordinator' => 'Wahyu Kurnia Dewanto, S.Kom, MT',
-                'hari' => 'Senin'
-            ],
-            (object)[
-                'id' => 4,
-                'ruangan' => '3.3',
-                'prodi' => 'TIF',
-                'semester' => 3,
-                'golongan' => 'E',
-                'mata_kuliah' => 'Matematika Diskrit',
-                'jam_mulai' => '07:00',
-                'jam_selesai' => '09:00',
-                'kode_mk' => 'TIF130702',
-                'sks' => 2,
-                'dosen_koordinator' => 'Moh. Munih Dian W., S.Kom, MT',
-                'hari' => 'Senin'
-            ],
-            (object)[
-                'id' => 5,
-                'ruangan' => '4.1',
-                'prodi' => 'TKK',
-                'semester' => 1,
-                'golongan' => 'A',
-                'mata_kuliah' => 'Literasi Digital',
-                'jam_mulai' => '07:00',
-                'jam_selesai' => '09:00',
-                'kode_mk' => 'TKK110804',
-                'sks' => 2,
-                'dosen_koordinator' => 'Hariyono Rakhmad, S.Pd, M.Kom',
-                'hari' => 'Senin'
-            ],
+        $defaultRuangan = [
+            '3.1',
+            '3.2',
+            '3.3',
+            '3.4',
+            '3.5',
+            '3.6',
+            '3.7',
+            '3.8',
+            '3.9',
+            '3.10',
+            '3.11',
+            '4.1',
+            '4.2',
+            '4.3',
+            '4.4',
+            '4.5',
+            '4.6',
+            '4.7',
+            '4.8',
+            '4.9',
+            'F1',
+            'F2',
+            'F3',
+            'F4',
+            'F5',
+            'F6',
+            'Lab MMC',
+            'Lab RSI',
+            'Lab AJK',
+            'Lab SKK',
+            'Lab RPL',
+            'Lab KSI',
+            'Workshop Lab RSI',
+            'Workshop Lab AJK',
+            'Workshop Lab SKK',
+            'G1',
+            'G2',
+            'G3',
+            'Ruang Kelas A BWS',
+            'Ruang Kelas B BWS'
         ];
+
+        // Filter berdasarkan gedung jika dipilih
+        if (!empty($gedung)) {
+            if ($gedung === 'Lab') {
+                return array_filter($defaultRuangan, function ($ruangan) {
+                    return stripos($ruangan, 'Lab') !== false ||
+                        stripos($ruangan, 'Workshop') !== false;
+                });
+            } elseif ($gedung === 'F') {
+                return array_filter($defaultRuangan, function ($ruangan) {
+                    return strpos($ruangan, 'F') === 0;
+                });
+            } elseif (is_numeric($gedung)) {
+                return array_filter($defaultRuangan, function ($ruangan) use ($gedung) {
+                    return strpos($ruangan, $gedung . '.') === 0;
+                });
+            }
+        }
+
+        return $defaultRuangan;
     }
 
     /**
@@ -119,24 +169,31 @@ class RuanganController extends Controller
         $grid = [];
         $timeSlots = $this->getTimeSlots();
 
+        // Initialize grid with empty values
         foreach ($ruangans as $ruangan) {
             $grid[$ruangan] = [];
-
             foreach ($timeSlots as $timeSlot) {
                 $grid[$ruangan][$timeSlot] = null;
+            }
+        }
 
-                // Find schedule for this room and time
-                foreach ($jadwals as $jadwal) {
-                    if ($jadwal->ruangan == $ruangan) {
-                        $startHour = (int)substr($jadwal->jam_mulai, 0, 2);
-                        $endHour = (int)substr($jadwal->jam_selesai, 0, 2);
-                        $currentHour = (int)substr($timeSlot, 0, 2);
+        // Fill grid with schedule data
+        foreach ($jadwals as $jadwal) {
+            $ruangan = $jadwal->ruangan;
 
-                        if ($currentHour >= $startHour && $currentHour < $endHour) {
-                            $grid[$ruangan][$timeSlot] = $jadwal;
-                            break;
-                        }
-                    }
+            // Skip if room not in our list
+            if (!in_array($ruangan, $ruangans)) {
+                continue;
+            }
+
+            $startHour = (int)substr($jadwal->jam_mulai, 0, 2);
+            $endHour = (int)substr($jadwal->jam_selesai, 0, 2);
+
+            // Mark each time slot that's occupied
+            for ($hour = $startHour; $hour < $endHour; $hour++) {
+                $timeSlot = sprintf('%02d:00', $hour);
+                if (isset($grid[$ruangan][$timeSlot])) {
+                    $grid[$ruangan][$timeSlot] = $jadwal;
                 }
             }
         }
@@ -154,5 +211,49 @@ class RuanganController extends Controller
             $slots[] = sprintf('%02d:00', $hour);
         }
         return $slots;
+    }
+
+    /**
+     * Get statistics from schedule data
+     */
+    private function getStatistics($jadwals)
+    {
+        if ($jadwals->isEmpty()) {
+            return [
+                'total_kelas' => 0,
+                'prodi_count' => 0,
+                'ruangan_count' => 0,
+                'semester_list' => [],
+                'busiest_hour' => 'N/A',
+                'most_used_room' => 'N/A'
+            ];
+        }
+
+        // Hitung jam tersibuk
+        $hourCount = [];
+        foreach ($jadwals as $jadwal) {
+            $startHour = (int)substr($jadwal->jam_mulai, 0, 2);
+            $endHour = (int)substr($jadwal->jam_selesai, 0, 2);
+
+            for ($hour = $startHour; $hour < $endHour; $hour++) {
+                $hourKey = sprintf('%02d:00', $hour);
+                $hourCount[$hourKey] = ($hourCount[$hourKey] ?? 0) + 1;
+            }
+        }
+
+        $busiestHour = $hourCount ? array_search(max($hourCount), $hourCount) : 'N/A';
+
+        // Hitung ruangan paling banyak digunakan
+        $roomUsage = $jadwals->groupBy('ruangan')->map->count();
+        $mostUsedRoom = $roomUsage->isNotEmpty() ? $roomUsage->sortDesc()->keys()->first() : 'N/A';
+
+        return [
+            'total_kelas' => $jadwals->count(),
+            'prodi_count' => $jadwals->unique('prodi')->count(),
+            'ruangan_count' => $jadwals->unique('ruangan')->count(),
+            'semester_list' => $jadwals->unique('semester')->pluck('semester')->sort()->values(),
+            'busiest_hour' => $busiestHour,
+            'most_used_room' => $mostUsedRoom
+        ];
     }
 }
