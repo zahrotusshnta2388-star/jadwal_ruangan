@@ -7,22 +7,27 @@ use Illuminate\Http\Request;
 class HomeController extends Controller
 {
     /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function __construct()
-    {
-        $this->middleware('auth');
-    }
-
-    /**
-     * Show the application dashboard.
-     *
-     * @return \Illuminate\Contracts\Support\Renderable
+     * Display the home page.
      */
     public function index()
     {
-        return view('home');
+        // For Laravel 12, use simple data
+        $data = [
+            'pageTitle' => 'Beranda - Sistem Jadwal Ruangan',
+            'welcomeMessage' => 'Selamat datang di Sistem Jadwal Ruangan',
+            'features' => [
+                'Monitoring jadwal penggunaan ruangan',
+                'Filter berdasarkan tanggal',
+                'Upload data dari CSV',
+                'Tampilan tabel yang interaktif'
+            ],
+            'stats' => [
+                'total_rooms' => 0,
+                'total_schedules' => 0,
+                'active_programs' => 0
+            ]
+        ];
+
+        return view('home.index', $data);
     }
 }
