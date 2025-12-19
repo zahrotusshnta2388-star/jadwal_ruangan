@@ -51,99 +51,81 @@ class AdminController extends Controller
             // Validate request
             $request->validate([
                 'csv_file' => 'required|file|mimes:csv,txt|max:10240',
-                'tanggal_efektif' => 'required|date',
+                'tahun_akademik' => 'required|in:2024/2025,2025/2026,2026/2027,2027/2028',
+                'semester_akademik' => 'required|in:Ganjil,Genap', // GANTI
                 'action' => 'required|in:append,replace'
             ]);
 
-            // Get file
             $file = $request->file('csv_file');
+            $tahunAkademik = $request->input('tahun_akademik');
+            $semesterAkademik = $request->input('semester_akademik'); // GANTI
+            $action = $request->input('action');
+            $semesterFilter = $request->input('semester_filter'); // OPSIONAL
+            $prodiFilter = $request->input('prodi'); // OPSIONAL
 
-            // Debug: Log file info
             \Log::info('=== CSV UPLOAD START ===');
-            \Log::info('File original name:', [$file->getClientOriginalName()]);
-            \Log::info('File size:', [$file->getSize()]);
-            \Log::info('File mime type:', [$file->getMimeType()]);
-            \Log::info('File extension:', [$file->getClientOriginalExtension()]);
-            \Log::info('File real path:', [$file->getRealPath()]);
+            \Log::info('Tahun Akademik: ' . $tahunAkademik);
+            \Log::info('Semester Akademik: ' . $semesterAkademik); // GANTI
 
-            // Method 1: Simpan file temporary dengan cara yang benar
-            $tempPath = $file->store('temp');
-            \Log::info('File stored at:', [$tempPath]);
-            \Log::info('Storage path:', [storage_path('app/' . $tempPath)]);
-            \Log::info('File exists?', [file_exists(storage_path('app/' . $tempPath))]);
-
-            // Baca file langsung dari uploaded file
-            $csvContent = file_get_contents($file->getRealPath());
-            \Log::info('File content length:', [strlen($csvContent)]);
-            \Log::info('First 200 chars:', [substr($csvContent, 0, 200)]);
-
-            // Method 2: Parse langsung dari uploaded file
+            // Parse CSV file
             $csvData = $this->parseCSVFromUpload($file);
 
-            \Log::info('Parsed data count:', [count($csvData)]);
-
             if (empty($csvData)) {
-                // Coba method alternatif
-                $csvData = $this->parseCSVAlternative($file);
-                \Log::info('Alternative parse count:', [count($csvData)]);
-
-                if (empty($csvData)) {
-                    // Clean up
-                    Storage::delete($tempPath);
-
-                    return back()
-                        ->with('error', 'File CSV kosong atau format tidak sesuai. ' .
-                            'Pastikan file memiliki header dan data.')
-                        ->with('debug_info', [
-                            'file_name' => $file->getClientOriginalName(),
-                            'file_size' => $file->getSize(),
-                            'temp_path' => $tempPath,
-                            'content_sample' => substr($csvContent, 0, 500)
-                        ]);
-                }
+                return back()->with('error', 'File CSV kosong atau format tidak sesuai.');
             }
-
-            // Get other inputs
-            $tanggalEfektif = $request->input('tanggal_efektif');
-            $action = $request->input('action');
-            $semester = $request->input('semester');
-            $prodi = $request->input('prodi');
 
             // Filter data jika ada filter
-            if (!empty($semester) || !empty($prodi)) {
-                $csvData = $this->filterCSVData($csvData, $semester, $prodi);
+            if (!empty($semesterFilter) || !empty($prodiFilter)) {
+                $csvData = $this->filterCSVData($csvData, $semesterFilter, $prodiFilter);
             }
 
-            // Jika action = replace, hapus data lama untuk tanggal tersebut
-            if ($action === 'replace') {
-                $deletedCount = Jadwal::deleteByDate($tanggalEfektif);
-                \Log::info("Deleted {$deletedCount} old records for date: {$tanggalEfektif}");
-            }
+            // Dapatkan tanggal periode akademik
+            $periodDates = Jadwal::getAcademicPeriodDates($tahunAkademik, $semesterAkademik); // GANTI
+            $tanggalMulai = $periodDates['mulai']->toDateString();
+            $tanggalSelesai = $periodDates['selesai']->toDateString();
 
             // Import data ke database
-            $importResult = Jadwal::importFromCSV($csvData, $tanggalEfektif);
+            $importResult = Jadwal::importFromCSV(
+                $csvData,
+                $tahunAkademik,
+                $semesterAkademik, // GANTI
+                $tanggalMulai,
+                $tanggalSelesai,
+                $action
+            );
+
+            // AUTO-GENERATE langsung setelah import
+            if ($importResult['success_count'] > 0) {
+                $generatedCount = Jadwal::generateJadwalRiil($tahunAkademik, $semesterAkademik);
+                \Log::info("Auto-generated {$generatedCount} real schedules");
+
+                // Tambahkan info generate ke response
+                $responseData['generated'] = $generatedCount;
+            }
 
             // Save upload log
-            $this->saveUploadLog($file->getClientOriginalName(), $importResult, $tanggalEfektif, $action);
+            $this->saveUploadLog(
+                $file->getClientOriginalName(),
+                $importResult,
+                $tahunAkademik,
+                $semesterAkademik, // GANTI
+                $action
+            );
 
-            // Clean up temporary file
-            Storage::delete($tempPath);
-
-            \Log::info('Import result:', [$importResult]);
-            \Log::info('=== CSV UPLOAD END ===');
-
-            // Prepare response data
+            // Prepare response
             $responseData = [
                 'success' => $importResult['success_count'],
                 'failed' => $importResult['failed_count'],
                 'total' => $importResult['total_rows'],
-                'failed_rows' => array_slice($importResult['failed_rows'], 0, 10)
+                'tahun_akademik' => $tahunAkademik,
+                'semester' => $semesterAkademik,
+                'periode' => $tanggalMulai . ' - ' . $tanggalSelesai,
+                'failed_rows' => $importResult['failed_rows'] ?? [] // TAMBAHKIN INI
             ];
 
-            // Return with success message
             return redirect()
                 ->route('admin.upload')
-                ->with('success', "Import berhasil! {$importResult['success_count']} dari {$importResult['total_rows']} data berhasil diimport.")
+                ->with('success', "Import berhasil! Template untuk {$semesterAkademik} {$tahunAkademik} telah dibuat.")
                 ->with('import_result', $responseData);
         } catch (\Exception $e) {
             \Log::error('CSV Upload Error: ' . $e->getMessage());
@@ -153,6 +135,27 @@ class AdminController extends Controller
                 ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
                 ->withInput();
         }
+    }
+
+    /**
+     * Update saveUploadLog untuk include semester
+     */
+    private function saveUploadLog($filename, $importResult, $tahunAkademik, $semesterAkademik, $action) // GANTI parameter
+    {
+        $logPath = storage_path('logs/uploads.log');
+        $logMessage = sprintf(
+            "[%s] File: %s | Tahun: %s | Semester: %s | Action: %s | Success: %d | Failed: %d | Total: %d\n",
+            date('Y-m-d H:i:s'),
+            $filename,
+            $tahunAkademik,
+            $semesterAkademik, // GANTI
+            $action,
+            $importResult['success_count'],
+            $importResult['failed_count'],
+            $importResult['total_rows']
+        );
+
+        file_put_contents($logPath, $logMessage, FILE_APPEND | LOCK_EX);
     }
 
     /**
@@ -226,8 +229,13 @@ class AdminController extends Controller
 
             $data[] = $rowData;
         }
-
+        \Log::info("CSV Parsing Results:");
+        \Log::info("Headers found: " . implode(', ', $headers));
         \Log::info("Total rows parsed: " . count($data));
+
+        if (count($data) > 0) {
+            \Log::info("Sample first row:", $data[0]);
+        }
 
         return $data;
     }
@@ -500,43 +508,23 @@ class AdminController extends Controller
     /**
      * Filter CSV data based on semester and prodi
      */
-    private function filterCSVData($data, $semester, $prodi)
+    private function filterCSVData($data, $semesterFilter, $prodiFilter) // GANTI parameter
     {
-        return array_filter($data, function ($row) use ($semester, $prodi) {
+        return array_filter($data, function ($row) use ($semesterFilter, $prodiFilter) {
             $match = true;
 
-            if (!empty($semester)) {
+            if (!empty($semesterFilter)) {
                 $rowSemester = intval($row['Smt'] ?? 0);
-                $match = $match && ($rowSemester == $semester);
+                $match = $match && ($rowSemester == $semesterFilter);
             }
 
-            if (!empty($prodi)) {
+            if (!empty($prodiFilter)) {
                 $rowProdi = trim($row['Prodi'] ?? '');
-                $match = $match && ($rowProdi == $prodi);
+                $match = $match && ($rowProdi == $prodiFilter);
             }
 
             return $match;
         });
-    }
-
-    /**
-     * Save upload log
-     */
-    private function saveUploadLog($filename, $importResult, $tanggal, $action)
-    {
-        $logPath = storage_path('logs/uploads.log');
-        $logMessage = sprintf(
-            "[%s] File: %s | Tanggal: %s | Action: %s | Success: %d | Failed: %d | Total: %d\n",
-            date('Y-m-d H:i:s'),
-            $filename,
-            $tanggal,
-            $action,
-            $importResult['success_count'],
-            $importResult['failed_count'],
-            $importResult['total_rows']
-        );
-
-        file_put_contents($logPath, $logMessage, FILE_APPEND | LOCK_EX);
     }
 
     /**
@@ -584,5 +572,29 @@ class AdminController extends Controller
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="template_jadwal.csv"'
         ]);
+    }
+
+    // Tambahkan method ini di AdminController
+    public function generateJadwal(Request $request)
+    {
+        try {
+            $request->validate([
+                'tahun_akademik' => 'required',
+                'semester' => 'required|in:Ganjil,Genap'
+            ]);
+
+            $count = Jadwal::generateJadwalRiil($request->tahun_akademik, $request->semester);
+
+            return response()->json([
+                'success' => true,
+                'count' => $count,
+                'message' => 'Berhasil generate ' . $count . ' jadwal'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 }

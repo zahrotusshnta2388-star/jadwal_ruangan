@@ -46,6 +46,39 @@
                                 </div>
                             </div>
 
+                            {{-- Tambahkan di form filter, setelah filter gedung --}}
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="tahun_akademik" class="form-label">
+                                        <i class="bi bi-calendar-range"></i> Tahun Akademik
+                                    </label>
+                                    <select class="form-select" id="tahun_akademik" name="tahun_akademik">
+                                        <option value="">Semua Tahun</option>
+                                        @foreach (['2024/2025', '2025/2026', '2026/2027', '2027/2028'] as $year)
+                                            <option value="{{ $year }}"
+                                                {{ request('tahun_akademik') == $year ? 'selected' : '' }}>
+                                                {{ $year }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="semester" class="form-label">
+                                        <i class="bi bi-journal-bookmark"></i> Semester
+                                    </label>
+                                    <select class="form-select" id="semester" name="semester">
+                                        <option value="">Semua Semester</option>
+                                        <option value="Ganjil" {{ request('semester') == 'Ganjil' ? 'selected' : '' }}>
+                                            Ganjil</option>
+                                        <option value="Genap" {{ request('semester') == 'Genap' ? 'selected' : '' }}>Genap
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div class="col-md-4">
                                 <div class="mb-3">
                                     <label class="form-label d-block">&nbsp;</label>
@@ -84,9 +117,9 @@
                                 <thead class="ruangan-header">
                                     <tr>
                                         <th>Ruangan/Jam</th>
-                                        @for ($jam = 7; $jam <= 17; $jam++)
-                                            <th class="text-center">{{ sprintf('%02d:00', $jam) }}</th>
-                                        @endfor
+                                        @foreach ($timeSlots as $timeSlot)
+                                            <th class="text-center">{{ $timeSlot }}</th>
+                                        @endforeach
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -94,34 +127,45 @@
                                         <tr>
                                             <td class="ruangan-header fw-bold">
                                                 {{ $ruangan }}
-                                            </td>
-                                            @for ($jam = 7; $jam <= 17; $jam++)
                                                 @php
-                                                    $waktu = sprintf('%02d:00', $jam);
-                                                    $jadwal = collect($jadwals)->first(function ($item) use (
-                                                        $ruangan,
-                                                        $waktu,
-                                                    ) {
-                                                        return $item->ruangan == $ruangan &&
-                                                            substr($item->jam_mulai, 0, 2) == substr($waktu, 0, 2);
-                                                    });
+                                                    // Hitung kelas di ruangan ini
+                                                    $kelasCount = collect($jadwals)
+                                                        ->where('ruangan', $ruangan)
+                                                        ->count();
+                                                @endphp
+                                                @if ($kelasCount > 0)
+                                                    <br>
+                                                    <small class="text-muted">({{ $kelasCount }} kelas)</small>
+                                                @endif
+                                            </td>
+                                            @foreach ($timeSlots as $timeSlot)
+                                                @php
+                                                    $jadwal = $scheduleGrid[$ruangan][$timeSlot] ?? null;
                                                 @endphp
                                                 <td class="ruangan-cell text-center {{ $jadwal ? 'occupied' : 'empty' }}"
                                                     data-bs-toggle="{{ $jadwal ? 'tooltip' : '' }}"
-                                                    title="{{ $jadwal ? $jadwal->prodi . ' ' . $jadwal->semester . ' ' . $jadwal->golongan : 'Kosong' }}">
+                                                    title="{{ $jadwal ? $jadwal->prodi . ' ' . $jadwal->semester . $jadwal->golongan . ' - ' . $jadwal->mata_kuliah : 'Kosong' }}">
                                                     @if ($jadwal)
-                                                        <small class="d-block fw-bold">
-                                                            {{ $jadwal->prodi }}
-                                                            {{ $jadwal->semester }}{{ $jadwal->golongan }}
-                                                        </small>
-                                                        <small class="d-block text-muted">
-                                                            {{ $jadwal->mata_kuliah }}
-                                                        </small>
+                                                        <div class="schedule-info">
+                                                            <small class="d-block fw-bold">
+                                                                {{ $jadwal->prodi }}
+                                                                {{ $jadwal->semester }}{{ $jadwal->golongan }}
+                                                            </small>
+                                                            <small class="d-block text-muted" style="font-size: 0.75rem;">
+                                                                {{ \Illuminate\Support\Str::limit($jadwal->mata_kuliah, 12, '...') }}
+                                                            </small>
+                                                            @if (substr($jadwal->jam_mulai, 0, 2) == substr($timeSlot, 0, 2))
+                                                                <small class="d-block text-primary"
+                                                                    style="font-size: 0.7rem;">
+                                                                    {{ substr($jadwal->jam_mulai, 0, 5) }}
+                                                                </small>
+                                                            @endif
+                                                        </div>
                                                     @else
                                                         <span class="text-muted">-</span>
                                                     @endif
                                                 </td>
-                                            @endfor
+                                            @endforeach
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -133,7 +177,8 @@
                             <h6><i class="bi bi-info-circle"></i> Keterangan:</h6>
                             <div class="d-flex gap-3">
                                 <div>
-                                    <span class="badge bg-success">TIF 3 C</span> = Teknik Informatika, Semester 3, Golongan
+                                    <span class="badge bg-success">TIF 3 C</span> = Teknik Informatika, Semester 3,
+                                    Golongan
                                     C
                                 </div>
                                 <div>

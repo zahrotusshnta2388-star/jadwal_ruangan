@@ -71,6 +71,22 @@
             border-top: 1px solid #dee2e6;
             color: #6c757d;
         }
+
+        .ruangan-cell {
+            min-width: 100px;
+            height: 70px;
+            vertical-align: middle !important;
+            font-size: 0.8rem;
+        }
+
+        .occupied {
+            background-color: #d4edda !important;
+            border-left: 3px solid #28a745 !important;
+        }
+
+        .schedule-info {
+            line-height: 1.2;
+        }
     </style>
 
     @yield('styles')

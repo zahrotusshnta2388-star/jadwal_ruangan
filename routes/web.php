@@ -19,8 +19,61 @@ Route::prefix('admin')->group(function () {
     Route::get('/upload', [AdminController::class, 'upload'])->name('admin.upload');
     Route::post('/upload', [AdminController::class, 'processUpload'])->name('admin.upload.process');
     Route::get('/download-template', [AdminController::class, 'downloadTemplate'])->name('admin.download.template');
+    Route::post('/generate-jadwal', [AdminController::class, 'generateJadwal'])->name('admin.generate.jadwal');
 });
 
+Route::get('/test-import', function () {
+    // Sample data untuk test
+    $sampleData = [[
+        'No' => '1',
+        'Keterangan' => 'Jember',
+        'Prodi' => 'TIF',
+        'Smt' => '1',
+        'gol' => 'A',
+        'Kode' => 'TIF110803',
+        'MK' => 'Basic English',
+        'SKS' => '1',
+        'Dosen Koordinator' => 'Meiga Rahmanita, S.Pd., M.Pd.',
+        'Team Taching 1' => 'Titik Ismailia, S.Pd., M.Pd.',
+        'Team Taching 2' => '0',
+        'Team Taching 3' => '0',
+        'Team Taching 4' => '',
+        'Teknisi' => '',
+        'Teknisi,' => '',
+        'Hari' => 'Senin',
+        'Jam' => '07.00 - 08.00',
+        'Ruang' => 'G1'
+    ]];
+
+    $result = \App\Models\Jadwal::importFromCSV(
+        $sampleData,
+        '2025/2026',
+        'Ganjil',
+        '2025-08-26',
+        '2025-12-06',
+        'append'
+    );
+
+    dd($result);
+});
+
+Route::get('/debug-ruangan', function (Request $request) {
+    $date = '2027-04-13';
+    $tahun = '2026/2027';
+    $semester = 'Genap';
+
+    $query = \App\Models\Jadwal::where('is_template', false)
+        ->where('tanggal', $date)
+        ->where('tahun_akademik', $tahun)
+        ->where('semester_akademik', $semester);
+
+    return [
+        'sql' => $query->toSql(),
+        'bindings' => $query->getBindings(),
+        'count' => $query->count(),
+        'data' => $query->limit(5)->get()->toArray()
+    ];
+});
 
 
 

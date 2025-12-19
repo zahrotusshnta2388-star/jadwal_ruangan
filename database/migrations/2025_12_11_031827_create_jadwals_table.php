@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('jadwals', function (Blueprint $table) {
             $table->id();
-            $table->date('tanggal');
+            $table->date('tanggal')->nullable();
             $table->string('hari', 10);
             $table->string('jam_mulai', 5); // Format: 07:00
             $table->string('jam_selesai', 5); // Format: 08:00

@@ -12,89 +12,115 @@ class RuanganController extends Controller
      */
     public function index(Request $request)
     {
-        // Get date filter or use today
+        // Get filters
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
         $gedung = $request->input('gedung', '');
+        $tahunAkademik = $request->input('tahun_akademik', '');
+        $semesterAkademik = $request->input('semester', '');
 
-        // Query data dari database berdasarkan tanggal
-        $query = Jadwal::where('tanggal', $selectedDate);
+        // Query jadwal RIIL (bukan template)
+        $query = Jadwal::where('is_template', false);
 
-        // Filter berdasarkan gedung jika dipilih
+        // Filter by date
+        $query->where('tanggal', $selectedDate);
+
+        // Filter by building
         if (!empty($gedung)) {
             if ($gedung === 'Lab') {
-                // Untuk filter laboratorium
                 $query->where(function ($q) {
                     $q->where('ruangan', 'LIKE', 'Lab%')
-                        ->orWhere('ruangan', 'LIKE', '%Lab%');
+                        ->orWhere('ruangan', 'LIKE', '%Lab%')
+                        ->orWhere('ruangan', 'LIKE', '%Workshop%');
                 });
             } elseif ($gedung === 'F') {
-                // Untuk gedung F
                 $query->where('ruangan', 'LIKE', 'F%');
             } else {
-                // Untuk gedung angka (3, 4, dll)
                 $query->where('ruangan', 'LIKE', $gedung . '.%');
             }
         }
 
-        // Ambil data jadwal
+        // Filter by academic year
+        if (!empty($tahunAkademik)) {
+            $query->where('tahun_akademik', $tahunAkademik);
+        }
+
+        // Filter by semester
+        if (!empty($semesterAkademik)) {
+            $query->where('semester_akademik', $semesterAkademik);
+        }
+
+        // Get schedules
         $jadwals = $query->orderBy('ruangan')
             ->orderBy('jam_mulai')
             ->get();
 
-        // Jika tidak ada data untuk tanggal ini, coba hari dari data
-        if ($jadwals->isEmpty()) {
-            // Cari tanggal terdekat yang ada data
-            $nearestDate = Jadwal::where('tanggal', '>=', $selectedDate)
-                ->orderBy('tanggal')
-                ->value('tanggal');
+        // Get unique rooms from the result
+        $ruangans = $jadwals->pluck('ruangan')->unique()->sort()->values()->toArray();
 
-            if ($nearestDate) {
-                // Redirect ke tanggal terdekat yang ada data
-                return redirect()->route('ruangan.index', [
-                    'tanggal' => $nearestDate,
-                    'gedung' => $gedung
-                ]);
-            }
-        }
-
-        // Dapatkan daftar ruangan unik dari database
-        $ruangans = Jadwal::where('tanggal', $selectedDate)
-            ->select('ruangan')
-            ->distinct()
-            ->orderBy('ruangan')
-            ->pluck('ruangan')
-            ->toArray();
-
-        // Jika tidak ada ruangan, gunakan daftar default
+        // If no rooms, show default
         if (empty($ruangans)) {
             $ruangans = $this->getDefaultRuanganList($gedung);
         }
 
-        // Organize data into grid format
-        $scheduleGrid = $this->organizeScheduleGrid($jadwals, $ruangans);
+        // Get time slots
+        $timeSlots = [];
+        for ($hour = 7; $hour <= 17; $hour++) {
+            $timeSlots[] = sprintf('%02d:00', $hour);
+        }
 
-        // Get statistics
-        $totalKelas = $jadwals->count();
-        $totalRuangan = count($ruangans);
-        $prodiList = $jadwals->unique('prodi')->pluck('prodi')->toArray();
+        // Organize into grid
+        $scheduleGrid = [];
+        foreach ($ruangans as $ruangan) {
+            $scheduleGrid[$ruangan] = [];
+            foreach ($timeSlots as $timeSlot) {
+                $scheduleGrid[$ruangan][$timeSlot] = null;
+            }
+        }
 
-        return view('ruangan.index', [
-            'selectedDate' => $selectedDate,
-            'gedung' => $gedung,
-            'ruangans' => $ruangans,
-            'jadwals' => $jadwals,
-            'scheduleGrid' => $scheduleGrid,
-            'timeSlots' => $this->getTimeSlots(),
-            'totalKelas' => $totalKelas,
-            'totalRuangan' => $totalRuangan,
-            'prodiList' => $prodiList,
-            'statistics' => $this->getStatistics($jadwals)
-        ]);
+        // Fill grid
+        foreach ($jadwals as $jadwal) {
+            $ruangan = $jadwal->ruangan;
+            if (!isset($scheduleGrid[$ruangan])) {
+                continue;
+            }
+
+            $startHour = (int) substr($jadwal->jam_mulai, 0, 2);
+            $endHour = (int) substr($jadwal->jam_selesai, 0, 2);
+
+            // Mark occupied time slots
+            for ($hour = $startHour; $hour < $endHour; $hour++) {
+                $timeSlot = sprintf('%02d:00', $hour);
+                if (isset($scheduleGrid[$ruangan][$timeSlot])) {
+                    $scheduleGrid[$ruangan][$timeSlot] = $jadwal;
+                }
+            }
+        }
+
+        // Statistics
+        $statistics = [
+            'total_kelas' => $jadwals->count(),
+            'total_ruangan' => count($ruangans),
+            'prodi_list' => $jadwals->pluck('prodi')->unique()->values(),
+            'most_used_room' => $jadwals->groupBy('ruangan')
+                ->map->count()
+                ->sortDesc()
+                ->keys()
+                ->first() ?? 'N/A'
+        ];
+
+        return view('ruangan.index', compact(
+            'selectedDate',
+            'gedung',
+            'tahunAkademik',
+            'semesterAkademik',
+            'jadwals',
+            'ruangans',
+            'timeSlots',
+            'scheduleGrid',
+            'statistics'
+        ));
     }
 
-    /**
-     * Get default room list based on building filter
-     */
     private function getDefaultRuanganList($gedung)
     {
         $defaultRuangan = [
@@ -140,7 +166,6 @@ class RuanganController extends Controller
             'Ruang Kelas B BWS'
         ];
 
-        // Filter berdasarkan gedung jika dipilih
         if (!empty($gedung)) {
             if ($gedung === 'Lab') {
                 return array_filter($defaultRuangan, function ($ruangan) {
