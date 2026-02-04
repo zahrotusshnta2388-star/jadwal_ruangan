@@ -49,62 +49,70 @@
                             {{-- Tambahkan di form filter, setelah filter gedung --}}
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="tahun_akademik" class="form-label">
-                                        <i class="bi bi-calendar-range"></i> Tahun Akademik
+                                    <label for="kelas" class="form-label">
+                                        <i class="bi bi-people"></i> Filter Kelas
                                     </label>
-                                    <select class="form-select" id="tahun_akademik" name="tahun_akademik">
-                                        <option value="">Semua Tahun</option>
-                                        @foreach (['2024/2025', '2025/2026', '2026/2027', '2027/2028'] as $year)
-                                            <option value="{{ $year }}"
-                                                {{ request('tahun_akademik') == $year ? 'selected' : '' }}>
-                                                {{ $year }}
+                                    <select class="form-select" id="kelas" name="kelas">
+                                        <option value="">Semua Kelas</option>
+                                        @foreach ($allKelas ?? [] as $kelasOption)
+                                            <option value="{{ $kelasOption }}"
+                                                {{ request('kelas') == $kelasOption ? 'selected' : '' }}>
+                                                {{ $kelasOption }}
                                             </option>
                                         @endforeach
                                     </select>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="semester" class="form-label">
-                                        <i class="bi bi-journal-bookmark"></i> Semester
-                                    </label>
-                                    <select class="form-select" id="semester" name="semester">
-                                        <option value="">Semua Semester</option>
-                                        <option value="Ganjil" {{ request('semester') == 'Ganjil' ? 'selected' : '' }}>
-                                            Ganjil</option>
-                                        <option value="Genap" {{ request('semester') == 'Genap' ? 'selected' : '' }}>Genap
-                                        </option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label class="form-label d-block">&nbsp;</label>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-search"></i> Tampilkan Jadwal
-                                    </button>
-                                    <a href="{{ route('ruangan.index') }}" class="btn btn-outline-secondary">
-                                        <i class="bi bi-arrow-clockwise"></i> Reset
-                                    </a>
-                                </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="semester" class="form-label">
+                                    <i class="bi bi-journal-bookmark"></i> Semester
+                                </label>
+                                <select class="form-select" id="semester" name="semester">
+                                    <option value="">Semua Semester</option>
+                                    <option value="Ganjil" {{ request('semester') == 'Ganjil' ? 'selected' : '' }}>
+                                        Ganjil</option>
+                                    <option value="Genap" {{ request('semester') == 'Genap' ? 'selected' : '' }}>Genap
+                                    </option>
+                                </select>
                             </div>
                         </div>
-                    </form>
+
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label d-block">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search"></i> Tampilkan Jadwal
+                                </button>
+                                <a href="{{ route('ruangan.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-clockwise"></i> Reset
+                                </a>
+                            </div>
+                        </div>
                 </div>
+                </form>
             </div>
         </div>
+    </div>
     </div>
 
     <div class="row">
         <div class="col-md-12">
-            <div class="card">
+            <div class="card container">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-table"></i> Tabel Jadwal Ruangan
-                        <small class="ms-2">Tanggal: {{ request('tanggal', date('Y-m-d')) }}</small>
-                    </h5>
+                    <div>
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-table"></i> Tabel Jadwal Ruangan
+                        </h5>
+                        <small class="d-block">
+                            Tanggal: {{ $selectedDate }}
+                            @if ($kelas)
+                                | Kelas: <strong>{{ $kelas }}</strong>
+                            @endif
+                        </small>
+                    </div>
                     <button class="btn btn-light btn-sm" onclick="printTable()">
                         <i class="bi bi-printer"></i> Print
                     </button>
@@ -146,23 +154,22 @@
                                                     data-bs-toggle="{{ $jadwal ? 'tooltip' : '' }}"
                                                     title="{{ $jadwal ? $jadwal->prodi . ' ' . $jadwal->semester . $jadwal->golongan . ' - ' . $jadwal->mata_kuliah : 'Kosong' }}">
                                                     @if ($jadwal)
-                                                        <div class="schedule-info"
-                                                            style="overflow: visible; white-space: normal;">
-                                                            <small class="d-block fw-bold text-truncate"
-                                                                style="max-width: 100%;">
+                                                        <div class="schedule-info" style="line-height: 1.1;">
+                                                            {{-- Baris 1: Kelas --}}
+                                                            <small class="d-block fw-bold" style="font-size: 0.8rem;">
                                                                 {{ $jadwal->prodi }}
                                                                 {{ $jadwal->semester }}{{ $jadwal->golongan }}
                                                             </small>
-                                                            <small class="d-block text-muted"
-                                                                style="font-size: 0.75rem; word-wrap: break-word;">
+
+                                                            {{-- Baris 2: Mata Kuliah --}}
+                                                            <small class="d-block text-muted" style="font-size: 0.7rem;">
                                                                 {{ $jadwal->mata_kuliah }}
                                                             </small>
-                                                            @if (substr($jadwal->jam_mulai, 0, 2) == substr($timeSlot, 0, 2))
-                                                                <small class="d-block text-primary"
-                                                                    style="font-size: 0.7rem;">
-                                                                    {{ substr($jadwal->jam_mulai, 0, 5) }}
-                                                                </small>
-                                                            @endif
+
+                                                            {{-- Baris 3: Jam --}}
+                                                            <small class="d-block text-primary" style="font-size: 0.65rem;">
+                                                                {{ substr($jadwal->jam_mulai, 0, 5) }}
+                                                            </small>
                                                         </div>
                                                     @else
                                                         <span class="text-muted">-</span>
@@ -214,6 +221,8 @@
                                 </a>
                             </div>
                         </div>
+
+
                     @endif
                 </div>
             </div>

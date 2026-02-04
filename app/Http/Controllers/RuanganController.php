@@ -10,16 +10,31 @@ class RuanganController extends Controller
     public function index(Request $request)
     {
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
+        $kelas = $request->input('kelas'); // TAMBAHKAN INI: filter kelas
         $hari = $this->getHariIndonesia($selectedDate);
 
-        // 1. GET DATA
-        $jadwals = Jadwal::where('hari', $hari)
+        // 1. GET DATA - TAMBAH FILTER KELAS
+        $query = Jadwal::where('hari', $hari)
             ->orderBy('ruangan')
-            ->orderBy('jam_mulai')
-            ->get()
-            ->unique(function ($item) {
-                return $item->ruangan . '|' . $item->jam_mulai . '|' . $item->jam_selesai;
-            });
+            ->orderBy('jam_mulai');
+
+        // FILTER KELAS JIKA ADA
+        if ($kelas) {
+            // Parse format "TIF 6E" menjadi prodi, semester, golongan
+            if (preg_match('/^([A-Z]+)\s*(\d+)([A-Z])$/i', $kelas, $matches)) {
+                $prodi = strtoupper($matches[1]);
+                $semester = intval($matches[2]);
+                $golongan = strtoupper($matches[3]);
+
+                $query->where('prodi', $prodi)
+                    ->where('semester', $semester)
+                    ->where('golongan', $golongan);
+            }
+        }
+
+        $jadwals = $query->get()->unique(function ($item) {
+            return $item->ruangan . '|' . $item->jam_mulai . '|' . $item->jam_selesai;
+        });
 
         // 2. GET ROOMS
         $ruangansFromData = $jadwals->pluck('ruangan')->unique()->sort()->values()->toArray();
@@ -66,9 +81,23 @@ class RuanganController extends Controller
             }
         }
 
-        // 7. RETURN VIEW (uncomment untuk production)
+        // 6. AMBIL DAFTAR KELAS UNTUK DROPDOWN
+        $allKelas = Jadwal::select('prodi', 'semester', 'golongan')
+            ->distinct()
+            ->orderBy('prodi')
+            ->orderBy('semester')
+            ->orderBy('golongan')
+            ->get()
+            ->map(function ($item) {
+                return $item->prodi . ' ' . $item->semester . $item->golongan;
+            })
+            ->toArray();
+
+        // 7. RETURN VIEW
         return view('ruangan.index', [
             'selectedDate' => $selectedDate,
+            'kelas' => $kelas, // KIRIM NILAI KELAS KE VIEW
+            'allKelas' => $allKelas, // KIRIM DAFTAR KELAS
             'gedung' => '',
             'jadwals' => $jadwals,
             'ruangans' => $ruangans,
