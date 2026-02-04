@@ -85,6 +85,18 @@ class Jadwal extends Model
                     // Parse jam (optimized)
                     $jam = self::parseJamFast($row['Jam']);
 
+                    // VALIDASI PANJANG STRING
+                    if (strlen($jam['mulai']) > 5 || strlen($jam['selesai']) > 5) {
+                        $failedRows[] = ['row' => $index + 2, 'reason' => 'Format jam tidak valid: ' . $row['Jam']];
+                        continue;
+                    }
+
+                    // VALIDASI FORMAT HH:MM
+                    if (!preg_match('/^\d{2}:\d{2}$/', $jam['mulai']) || !preg_match('/^\d{2}:\d{2}$/', $jam['selesai'])) {
+                        $failedRows[] = ['row' => $index + 2, 'reason' => 'Format jam harus HH:MM: ' . $row['Jam']];
+                        continue;
+                    }
+
                     // Siapkan data untuk batch insert
                     $batchData[] = [
                         'tahun_akademik' => $tahunAkademik,
@@ -156,19 +168,58 @@ class Jadwal extends Model
 
         $jamString = trim($jamString);
 
+        // Normalize dots to colons first
+        $jamString = str_replace('.', ':', $jamString);
+
+        // Handle various formats
         if (strpos($jamString, '-') !== false) {
-            list($mulai, $selesai) = explode('-', $jamString);
+            $parts = explode('-', $jamString);
+            $mulai = trim($parts[0]);
+            $selesai = trim($parts[1] ?? $parts[0]);
+
+            // Ensure format HH:MM
+            $mulai = self::ensureTimeFormat($mulai);
+            $selesai = self::ensureTimeFormat($selesai);
+
             return [
-                'mulai' => str_replace('.', ':', trim($mulai)),
-                'selesai' => str_replace('.', ':', trim($selesai))
+                'mulai' => $mulai,
+                'selesai' => $selesai
             ];
         }
 
-        $mulai = str_replace('.', ':', $jamString);
+        // Single time format
+        $mulai = self::ensureTimeFormat($jamString);
+        $selesai = date('H:i', strtotime($mulai . ' +1 hour'));
+
         return [
             'mulai' => $mulai,
-            'selesai' => date('H:i', strtotime($mulai . ' +1 hour'))
+            'selesai' => $selesai
         ];
+    }
+
+    /**
+     * Ensure time is in HH:MM format (max 5 chars)
+     */
+    private static function ensureTimeFormat($time)
+    {
+        $time = trim($time);
+
+        // Remove seconds if present
+        if (strlen($time) > 5) {
+            $time = substr($time, 0, 5);
+        }
+
+        // Ensure proper format
+        if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+            // Add leading zero for single-digit hours
+            if (strlen($time) === 4) {
+                $time = '0' . $time;
+            }
+            return $time;
+        }
+
+        // Default fallback
+        return '07:00';
     }
 
 

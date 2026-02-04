@@ -146,13 +146,16 @@
                                                     data-bs-toggle="{{ $jadwal ? 'tooltip' : '' }}"
                                                     title="{{ $jadwal ? $jadwal->prodi . ' ' . $jadwal->semester . $jadwal->golongan . ' - ' . $jadwal->mata_kuliah : 'Kosong' }}">
                                                     @if ($jadwal)
-                                                        <div class="schedule-info">
-                                                            <small class="d-block fw-bold">
+                                                        <div class="schedule-info"
+                                                            style="overflow: visible; white-space: normal;">
+                                                            <small class="d-block fw-bold text-truncate"
+                                                                style="max-width: 100%;">
                                                                 {{ $jadwal->prodi }}
                                                                 {{ $jadwal->semester }}{{ $jadwal->golongan }}
                                                             </small>
-                                                            <small class="d-block text-muted" style="font-size: 0.75rem;">
-                                                                {{ \Illuminate\Support\Str::limit($jadwal->mata_kuliah, 12, '...') }}
+                                                            <small class="d-block text-muted"
+                                                                style="font-size: 0.75rem; word-wrap: break-word;">
+                                                                {{ $jadwal->mata_kuliah }}
                                                             </small>
                                                             @if (substr($jadwal->jam_mulai, 0, 2) == substr($timeSlot, 0, 2))
                                                                 <small class="d-block text-primary"
