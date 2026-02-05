@@ -107,17 +107,18 @@ class RuanganController extends Controller
 
     public function store(Request $request)
     {
+        // VALIDASI BARU TANPA kode_mk dan sks
         $validator = Validator::make($request->all(), [
             'tanggal' => 'required|date',
             'ruangan' => 'required|string|max:50',
-            'jam_mulai' => 'required',
-            'jam_selesai' => 'required',
+            'jam_mulai' => 'required|date_format:H:i',
+            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
             'prodi' => 'required|string|max:10',
             'semester' => 'required|integer|min:1|max:8',
             'golongan' => 'required|string|max:1',
-            'kode_mk' => 'nullable|string|max:20',
             'mata_kuliah' => 'required|string|max:100',
-            'sks' => 'required|integer|min:1|max:8',
+            'dosen_pengampu' => 'required|string|max:255',
+            'teknisi' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -132,12 +133,9 @@ class RuanganController extends Controller
         $conflict = Jadwal::where('tanggal', $request->tanggal)
             ->where('ruangan', $request->ruangan)
             ->where(function ($query) use ($request) {
-                $query->whereBetween('jam_mulai', [$request->jam_mulai, $request->jam_selesai])
-                    ->orWhereBetween('jam_selesai', [$request->jam_mulai, $request->jam_selesai])
-                    ->orWhere(function ($q) use ($request) {
-                        $q->where('jam_mulai', '<=', $request->jam_mulai)
-                            ->where('jam_selesai', '>=', $request->jam_selesai);
-                    });
+                // Kondisi 1: Jadwal baru dimulai DURING jadwal yang ada
+                $query->where('jam_mulai', '<', $request->jam_selesai)
+                    ->where('jam_selesai', '>', $request->jam_mulai);
             })
             ->first();
 
@@ -148,21 +146,33 @@ class RuanganController extends Controller
             ], 409);
         }
 
-        // Tentukan hari dari tanggal (hanya untuk referensi, tidak untuk filtering)
+        // AMBIL DATA SKS DAN KODE MK DARI TEMPLATE BERDASARKAN MATA KULIAH
+        $templateData = Jadwal::where('mata_kuliah', $request->mata_kuliah)
+            ->where('prodi', $request->prodi)
+            ->where('semester', $request->semester)
+            ->where('golongan', $request->golongan)
+            ->where('is_template', true)
+            ->first();
+
+        // Tentukan hari dari tanggal
         $hari = $this->getHariIndonesia($request->tanggal);
 
         $jadwal = Jadwal::create([
             'tanggal' => $request->tanggal,
-            'hari' => $hari, // Simpan hari hanya sebagai informasi
+            'hari' => $hari,
             'ruangan' => $request->ruangan,
             'jam_mulai' => $request->jam_mulai,
             'jam_selesai' => $request->jam_selesai,
             'prodi' => $request->prodi,
             'semester' => $request->semester,
             'golongan' => $request->golongan,
-            'kode_mk' => $request->kode_mk,
+            'kode_mk' => $templateData->kode_mk ?? null,
             'mata_kuliah' => $request->mata_kuliah,
-            'sks' => $request->sks,
+            'sks' => $templateData->sks ?? 2, // Default 2 jika tidak ditemukan
+            'dosen_koordinator' => $templateData->dosen_koordinator ?? null,
+            'team_teaching' => $templateData->team_teaching ?? null,
+            'dosen_pengampu' => $request->dosen_pengampu,
+            'teknisi' => $request->teknisi,
             'is_template' => false,
             'tahun_akademik' => date('Y') . '/' . (date('Y') + 1),
             'semester_akademik' => 'Genap',
@@ -175,7 +185,6 @@ class RuanganController extends Controller
         ]);
     }
 
-    // Di RuanganController.php
     public function forceDelete($id)
     {
         $jadwal = Jadwal::find($id);
@@ -202,7 +211,26 @@ class RuanganController extends Controller
             ], 404);
         }
 
-        // Format waktu ke HH:MM jika perlu
+        // Format tanggal ke YYYY-MM-DD untuk input type="date"
+        $tanggal = $jadwal->tanggal;
+        if ($tanggal) {
+            // Jika tanggal dalam format lain, konversi
+            if (strpos($tanggal, '/') !== false) {
+                // Format: DD/MM/YYYY
+                $parts = explode('/', $tanggal);
+                if (count($parts) === 3) {
+                    $tanggal = $parts[2] . '-' . str_pad($parts[1], 2, '0', STR_PAD_LEFT) . '-' . str_pad($parts[0], 2, '0', STR_PAD_LEFT);
+                }
+            } elseif (preg_match('/^\d{2}-\d{2}-\d{4}$/', $tanggal)) {
+                // Format: DD-MM-YYYY
+                $parts = explode('-', $tanggal);
+                $tanggal = $parts[2] . '-' . $parts[1] . '-' . $parts[0];
+            }
+        }
+
+        $jadwal->tanggal = $tanggal;
+
+        // Format waktu ke HH:MM
         $jadwal->jam_mulai = substr($jadwal->jam_mulai, 0, 5);
         $jadwal->jam_selesai = substr($jadwal->jam_selesai, 0, 5);
 
@@ -223,17 +251,18 @@ class RuanganController extends Controller
             ], 404);
         }
 
+        // VALIDASI BARU TANPA kode_mk dan sks
         $validator = Validator::make($request->all(), [
             'tanggal' => 'required|date',
             'ruangan' => 'required|string|max:50',
-            'jam_mulai' => 'required',
-            'jam_selesai' => 'required',
+            'jam_mulai' => 'required|date_format:H:i',
+            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
             'prodi' => 'required|string|max:10',
             'semester' => 'required|integer|min:1|max:8',
             'golongan' => 'required|string|max:1',
-            'kode_mk' => 'nullable|string|max:20',
             'mata_kuliah' => 'required|string|max:100',
-            'sks' => 'required|integer|min:1|max:8',
+            'dosen_pengampu' => 'required|string|max:255',
+            'teknisi' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -242,6 +271,30 @@ class RuanganController extends Controller
                 'message' => 'Validasi gagal',
                 'errors' => $validator->errors()
             ], 422);
+        }
+
+        // AMBIL DATA SKS DAN KODE MK DARI TEMPLATE JIKA MATA KULIAH BERUBAH
+        $kode_mk = $jadwal->kode_mk;
+        $sks = $jadwal->sks;
+
+        if (
+            $jadwal->mata_kuliah != $request->mata_kuliah ||
+            $jadwal->prodi != $request->prodi ||
+            $jadwal->semester != $request->semester ||
+            $jadwal->golongan != $request->golongan
+        ) {
+
+            $templateData = Jadwal::where('mata_kuliah', $request->mata_kuliah)
+                ->where('prodi', $request->prodi)
+                ->where('semester', $request->semester)
+                ->where('golongan', $request->golongan)
+                ->where('is_template', true)
+                ->first();
+
+            if ($templateData) {
+                $kode_mk = $templateData->kode_mk;
+                $sks = $templateData->sks;
+            }
         }
 
         // Update hari jika tanggal berubah
@@ -258,9 +311,11 @@ class RuanganController extends Controller
             'prodi' => $request->prodi,
             'semester' => $request->semester,
             'golongan' => $request->golongan,
-            'kode_mk' => $request->kode_mk,
+            'kode_mk' => $kode_mk,
             'mata_kuliah' => $request->mata_kuliah,
-            'sks' => $request->sks,
+            'sks' => $sks,
+            'dosen_pengampu' => $request->dosen_pengampu,
+            'teknisi' => $request->teknisi,
         ]);
 
         return response()->json([
@@ -272,9 +327,7 @@ class RuanganController extends Controller
 
     public function destroy($id)
     {
-
         try {
-
             $jadwal = Jadwal::find($id);
 
             if (!$jadwal) {
@@ -326,5 +379,88 @@ class RuanganController extends Controller
         ];
 
         return $hariMap[$hariInggris] ?? 'Senin';
+    }
+
+    public function getMataKuliah(Request $request)
+    {
+        $prodi = $request->input('prodi');
+        $semester = $request->input('semester');
+        $golongan = $request->input('golongan');
+
+        if (!$prodi || !$semester || !$golongan) {
+            return response()->json([]);
+        }
+
+        $mataKuliah = Jadwal::where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true)
+            ->select('mata_kuliah', 'kode_mk', 'sks', 'dosen_koordinator', 'team_teaching', 'teknisi')
+            ->distinct()
+            ->orderBy('mata_kuliah')
+            ->get();
+
+        return response()->json($mataKuliah);
+    }
+
+    public function getDosenPengampu(Request $request)
+    {
+        $mataKuliah = $request->input('mata_kuliah');
+        $prodi = $request->input('prodi');
+        $semester = $request->input('semester');
+        $golongan = $request->input('golongan');
+
+        if (!$mataKuliah || !$prodi || !$semester || !$golongan) {
+            return response()->json([]);
+        }
+
+        $jadwal = Jadwal::where('mata_kuliah', $mataKuliah)
+            ->where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true)
+            ->first();
+
+        if (!$jadwal) {
+            return response()->json([]);
+        }
+
+        $dosenPengampu = [];
+
+        // Tambahkan dosen koordinator
+        if ($jadwal->dosen_koordinator) {
+            $dosenPengampu[] = $jadwal->dosen_koordinator;
+        }
+
+        // Tambahkan team teaching
+        if ($jadwal->team_teaching) {
+            $team = json_decode($jadwal->team_teaching, true);
+            if (is_array($team)) {
+                $dosenPengampu = array_merge($dosenPengampu, $team);
+            }
+        }
+
+        return response()->json(array_unique($dosenPengampu));
+    }
+
+    public function getTeknisi(Request $request)
+    {
+        $mataKuliah = $request->input('mata_kuliah');
+        $prodi = $request->input('prodi');
+        $semester = $request->input('semester');
+        $golongan = $request->input('golongan');
+
+        if (!$mataKuliah || !$prodi || !$semester || !$golongan) {
+            return response()->json(['teknisi' => null]);
+        }
+
+        $jadwal = Jadwal::where('mata_kuliah', $mataKuliah)
+            ->where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true)
+            ->first();
+
+        return response()->json(['teknisi' => $jadwal ? $jadwal->teknisi : null]);
     }
 }

@@ -284,7 +284,7 @@
         </div>
     </div>
 
-    {{-- MODAL TAMBAH/EDIT JADWAL (VERSI DURASI 1-11 JAM) --}}
+    {{-- MODAL TAMBAH/EDIT JADWAL (VERSI BARU) --}}
     <div class="modal fade" id="jadwalModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -406,45 +406,38 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Kode Mata Kuliah</label>
-                            <input type="text" class="form-control" name="kode_mk" id="modal_kode_mk">
-                        </div>
-
+                        {{-- MATA KULIAH DROPDOWN --}}
                         <div class="mb-3">
                             <label class="form-label">Mata Kuliah <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="mata_kuliah" id="modal_mata_kuliah"
-                                required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">SKS <span class="text-danger">*</span></label>
-                            <select class="form-select" name="sks" id="modal_sks" required>
-                                <option value="">Pilih</option>
-                                @for ($i = 1; $i <= 8; $i++)
-                                    <option value="{{ $i }}">{{ $i }}</option>
-                                @endfor
+                            <select class="form-select" name="mata_kuliah" id="modal_mata_kuliah" required>
+                                <option value="">Pilih Prodi, Semester, dan Golongan terlebih dahulu</option>
                             </select>
+                            <div class="form-text">Pilih mata kuliah berdasarkan prodi, semester, dan golongan</div>
                         </div>
-                    </div>
 
-                    {{-- Setelah input SKS --}}
-                    <div class="mb-3">
-                        <label class="form-label">Dosen Koordinator</label>
-                        <input type="text" class="form-control" name="dosen_koordinator"
-                            id="modal_dosen_koordinator">
-                    </div>
+                        {{-- DOSEN PENGAMPU DROPDOWN --}}
+                        <div class="mb-3">
+                            <label class="form-label">Dosen Pengampu <span class="text-danger">*</span></label>
+                            <select class="form-select" name="dosen_pengampu" id="modal_dosen_pengampu" required>
+                                <option value="">Pilih Mata Kuliah terlebih dahulu</option>
+                            </select>
+                            <div class="form-text">Dosen pengampu (koordinator + team teaching)</div>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Team Teaching</label>
-                        <textarea class="form-control" name="team_teaching" id="modal_team_teaching" rows="3"
-                            placeholder="Masukkan nama dosen, pisahkan dengan koma"></textarea>
-                        <div class="form-text">Pisahkan dengan koma: Dr. John Doe, M.Si, Dr. Jane Smith</div>
-                    </div>
+                        {{-- TEKNISI DROPDOWN --}}
+                        <div class="mb-3">
+                            <label class="form-label">Teknisi</label>
+                            <select class="form-select" name="teknisi" id="modal_teknisi">
+                                <option value="">Pilih Mata Kuliah terlebih dahulu</option>
+                            </select>
+                            <div class="form-text">Teknisi untuk mata kuliah yang dipilih</div>
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Teknisi</label>
-                        <input type="text" class="form-control" name="teknisi" id="modal_teknisi">
+                        {{-- HIDDEN FIELDS UNTUK DATA LAMA --}}
+                        <input type="hidden" name="kode_mk" id="modal_kode_mk">
+                        <input type="hidden" name="sks" id="modal_sks">
+                        <input type="hidden" name="dosen_koordinator" id="modal_dosen_koordinator">
+                        <input type="hidden" name="team_teaching" id="modal_team_teaching">
                     </div>
 
                     <div class="modal-footer">
@@ -553,27 +546,183 @@
             }
         }
 
+        function loadMataKuliah() {
+            let prodi = $('#modal_prodi').val();
+            let semester = $('#modal_semester').val();
+            let golongan = $('#modal_golongan').val();
+
+            if (!prodi || !semester || !golongan) {
+                $('#modal_mata_kuliah').html(
+                    '<option value="">Pilih Prodi, Semester, dan Golongan terlebih dahulu</option>');
+                $('#modal_dosen_pengampu').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                $('#modal_teknisi').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                return;
+            }
+
+            $.ajax({
+                url: '/ruangan/get-mata-kuliah',
+                type: 'GET',
+                data: {
+                    prodi: prodi,
+                    semester: semester,
+                    golongan: golongan
+                },
+                success: function(response) {
+                    let options = '<option value="">Pilih Mata Kuliah</option>';
+
+                    if (response.length > 0) {
+                        response.forEach(function(item) {
+                            options +=
+                                `<option value="${item.mata_kuliah}" 
+                                 data-kode="${item.kode_mk || ''}"
+                                 data-sks="${item.sks || 2}"
+                                 data-dosen-koordinator="${item.dosen_koordinator || ''}"
+                                 data-team-teaching="${item.team_teaching || '[]'}">${item.mata_kuliah}</option>`;
+                        });
+                    } else {
+                        options += '<option value="">Tidak ada mata kuliah untuk kelas ini</option>';
+                    }
+
+                    $('#modal_mata_kuliah').html(options);
+                    $('#modal_dosen_pengampu').html(
+                        '<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                    $('#modal_teknisi').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                },
+                error: function(xhr, status, error) {
+                    console.error('Gagal memuat mata kuliah:', error);
+                    $('#modal_mata_kuliah').html('<option value="">Error loading data</option>');
+                }
+            });
+        }
+
+        // Fungsi untuk load dosen pengampu berdasarkan mata kuliah
+        function loadDosenPengampu() {
+            let mataKuliah = $('#modal_mata_kuliah').val();
+            let prodi = $('#modal_prodi').val();
+            let semester = $('#modal_semester').val();
+            let golongan = $('#modal_golongan').val();
+
+            if (!mataKuliah || !prodi || !semester || !golongan) {
+                $('#modal_dosen_pengampu').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                return;
+            }
+
+            $.ajax({
+                url: '/ruangan/get-dosen-pengampu',
+                type: 'GET',
+                data: {
+                    mata_kuliah: mataKuliah,
+                    prodi: prodi,
+                    semester: semester,
+                    golongan: golongan
+                },
+                success: function(response) {
+                    let options = '<option value="">Pilih Dosen Pengampu</option>';
+
+                    if (response.length > 0) {
+                        response.forEach(function(dosen) {
+                            options += `<option value="${dosen}">${dosen}</option>`;
+                        });
+                    } else {
+                        options += '<option value="">Tidak ada dosen pengampu</option>';
+                    }
+
+                    $('#modal_dosen_pengampu').html(options);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Gagal memuat dosen pengampu:', error);
+                    $('#modal_dosen_pengampu').html('<option value="">Error loading data</option>');
+                }
+            });
+        }
+
+        // Fungsi untuk load teknisi berdasarkan mata kuliah
+        function loadTeknisi() {
+            let mataKuliah = $('#modal_mata_kuliah').val();
+            let prodi = $('#modal_prodi').val();
+            let semester = $('#modal_semester').val();
+            let golongan = $('#modal_golongan').val();
+
+            if (!mataKuliah || !prodi || !semester || !golongan) {
+                $('#modal_teknisi').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                return;
+            }
+
+            $.ajax({
+                url: '/ruangan/get-teknisi',
+                type: 'GET',
+                data: {
+                    mata_kuliah: mataKuliah,
+                    prodi: prodi,
+                    semester: semester,
+                    golongan: golongan
+                },
+                success: function(response) {
+                    let options = '<option value="">Pilih Teknisi</option>';
+
+                    if (response.teknisi) {
+                        options += `<option value="${response.teknisi}" selected>${response.teknisi}</option>`;
+                    } else {
+                        options += '<option value="">Tidak ada teknisi</option>';
+                    }
+
+                    $('#modal_teknisi').html(options);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Gagal memuat teknisi:', error);
+                    $('#modal_teknisi').html('<option value="">Error loading data</option>');
+                }
+            });
+        }
+
         $(document).ready(function() {
-            // Setup CSRF
+            // Pastikan CSRF token tersedia
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
 
+            // Inisialisasi tooltip
+            $('[data-bs-toggle="tooltip"]').tooltip();
+
             // Event untuk jam mulai dan durasi
-            $('#modal_jam_mulai, #durasi_jam').change(function() {
+            $('#modal_jam_mulai').change(function() {
+                calculateJamSelesai();
+            });
+
+            $('#durasi_jam').change(function() {
                 updateJamMulaiOptions();
                 calculateJamSelesai();
             });
 
-            // 1. TOMBOL TAMBAH - Versi dengan pilihan jam
+            // Event untuk prodi, semester, golongan (load mata kuliah)
+            $('#modal_prodi, #modal_semester, #modal_golongan').change(function() {
+                loadMataKuliah();
+            });
+
+            // Event untuk mata kuliah (load dosen pengampu & teknisi)
+            $('#modal_mata_kuliah').change(function() {
+                let selectedOption = $(this).find('option:selected');
+
+                // Set hidden fields
+                $('#modal_kode_mk').val(selectedOption.data('kode') || '');
+                $('#modal_sks').val(selectedOption.data('sks') || 2);
+                $('#modal_dosen_koordinator').val(selectedOption.data('dosen-koordinator') || '');
+                $('#modal_team_teaching').val(selectedOption.data('team-teaching') || '[]');
+
+                // Load data terkait
+                loadDosenPengampu();
+                loadTeknisi();
+            });
+
+            // 1. TOMBOL TAMBAH
             $(document).on('click', '.add-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 let ruangan = $(this).data('ruangan');
-                let jamSlot = $(this).data('jam'); // Jam default dari cell
+                let jamSlot = $(this).data('jam');
 
                 // Reset form
                 $('#jadwalForm')[0].reset();
@@ -582,6 +731,12 @@
                 $('#jadwalModalLabel').text('Tambah Jadwal');
                 $('#saveButton').text('Simpan').prop('disabled', false);
                 $('#jam_peringatan').hide();
+
+                // Reset hidden fields
+                $('#modal_kode_mk').val('');
+                $('#modal_sks').val('');
+                $('#modal_dosen_koordinator').val('');
+                $('#modal_team_teaching').val('');
 
                 // Isi data awal
                 $('#modal_ruangan').val(ruangan);
@@ -601,10 +756,17 @@
                 // Hitung jam selesai
                 calculateJamSelesai();
 
+                // Reset dropdowns
+                $('#modal_mata_kuliah').html(
+                    '<option value="">Pilih Prodi, Semester, dan Golongan terlebih dahulu</option>');
+                $('#modal_dosen_pengampu').html(
+                    '<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+                $('#modal_teknisi').html('<option value="">Pilih Mata Kuliah terlebih dahulu</option>');
+
                 $('#jadwalModal').modal('show');
             });
 
-            // 2. TOMBOL EDIT - Versi dengan pilihan jam
+            // 2. TOMBOL EDIT
             $(document).on('click', '.edit-btn', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -617,44 +779,111 @@
                     dataType: 'json',
                     success: function(response) {
                         if (response.success && response.data) {
+                            let data = response.data;
+
                             // Reset form
                             $('#jadwalForm')[0].reset();
                             $('#formMethod').val('PUT');
-                            $('#jadwalId').val(response.data.id);
+                            $('#jadwalId').val(data.id);
                             $('#jadwalModalLabel').text('Edit Jadwal');
                             $('#saveButton').text('Update').prop('disabled', false);
                             $('#jam_peringatan').hide();
 
-                            let data = response.data;
+                            // FORMAT TANGGAL UNTUK INPUT TYPE="DATE"
+                            // Pastikan tanggal dalam format YYYY-MM-DD
+                            let tanggal = data.tanggal;
+                            if (tanggal) {
+                                // Jika tanggal dalam format lain, konversi ke YYYY-MM-DD
+                                if (tanggal.includes('/')) {
+                                    // Format: DD/MM/YYYY -> YYYY-MM-DD
+                                    let parts = tanggal.split('/');
+                                    if (parts.length === 3) {
+                                        tanggal = parts[2] + '-' + parts[1].padStart(2, '0') +
+                                            '-' + parts[0].padStart(2, '0');
+                                    }
+                                } else if (tanggal.includes('-') && tanggal.split('-')[0]
+                                    .length === 2) {
+                                    // Format: DD-MM-YYYY -> YYYY-MM-DD
+                                    let parts = tanggal.split('-');
+                                    if (parts.length === 3) {
+                                        tanggal = parts[2] + '-' + parts[1].padStart(2, '0') +
+                                            '-' + parts[0].padStart(2, '0');
+                                    }
+                                }
+                                // Jika sudah YYYY-MM-DD, langsung pakai
+                                $('#modal_tanggal').val(tanggal);
+                            } else {
+                                // Default ke tanggal sekarang
+                                $('#modal_tanggal').val('{{ date('Y-m-d') }}');
+                            }
 
-                            // Isi form
-                            $('#modal_tanggal').val(data.tanggal);
+                            // Isi form lainnya
                             $('#modal_ruangan').val(data.ruangan);
 
                             // Format jam
-                            let jamMulai = data.jam_mulai.substring(0, 5);
-                            let jamSelesai = data.jam_selesai.substring(0, 5);
+                            let jamMulai = data.jam_mulai;
+                            let jamSelesai = data.jam_selesai;
+
+                            // Pastikan format jam HH:MM
+                            if (jamMulai && jamMulai.length > 5) {
+                                jamMulai = jamMulai.substring(0, 5);
+                            }
+                            if (jamSelesai && jamSelesai.length > 5) {
+                                jamSelesai = jamSelesai.substring(0, 5);
+                            }
 
                             $('#modal_jam_mulai').val(jamMulai);
                             $('#modal_jam_selesai').val(jamSelesai);
                             $('#modal_prodi').val(data.prodi);
                             $('#modal_semester').val(data.semester);
                             $('#modal_golongan').val(data.golongan);
-                            $('#modal_kode_mk').val(data.kode_mk || '');
-                            $('#modal_mata_kuliah').val(data.mata_kuliah);
-                            $('#modal_sks').val(data.sks);
 
                             // Hitung durasi
-                            let startHour = parseInt(jamMulai.split(':')[0]);
-                            let endHour = parseInt(jamSelesai.split(':')[0]);
-                            let durasi = endHour - startHour;
+                            if (jamMulai && jamSelesai) {
+                                let startHour = parseInt(jamMulai.split(':')[0]);
+                                let endHour = parseInt(jamSelesai.split(':')[0]);
+                                let durasi = endHour - startHour;
 
-                            $('#durasi_jam').val(durasi);
-                            $('#durasi_info').text('Durasi: ' + durasi + ' Jam (' + jamMulai +
-                                ' - ' + jamSelesai + ')');
+                                if (durasi > 0) {
+                                    $('#durasi_jam').val(durasi);
+                                    $('#durasi_info').text('Durasi: ' + durasi + ' Jam (' +
+                                        jamMulai + ' - ' + jamSelesai + ')');
+                                }
+                            }
 
-                            // Update pilihan jam mulai
+                            // Set hidden fields
+                            $('#modal_kode_mk').val(data.kode_mk || '');
+                            $('#modal_sks').val(data.sks || 2);
+                            $('#modal_dosen_koordinator').val(data.dosen_koordinator || '');
+                            $('#modal_team_teaching').val(data.team_teaching || '[]');
+
+                            // Update pilihan jam mulai berdasarkan durasi
                             updateJamMulaiOptions();
+
+                            // Load mata kuliah dan set nilai yang dipilih
+                            loadMataKuliah();
+
+                            // Tunggu sebentar lalu set mata kuliah dan data lainnya
+                            setTimeout(function() {
+                                if (data.mata_kuliah) {
+                                    $('#modal_mata_kuliah').val(data.mata_kuliah);
+
+                                    // Trigger change untuk load dosen dan teknisi
+                                    $('#modal_mata_kuliah').trigger('change');
+
+                                    // Set dosen pengampu dan teknisi setelah load
+                                    setTimeout(function() {
+                                        if (data.dosen_pengampu) {
+                                            $('#modal_dosen_pengampu').val(data
+                                                .dosen_pengampu);
+                                        }
+                                        if (data.teknisi) {
+                                            $('#modal_teknisi').val(data
+                                                .teknisi);
+                                        }
+                                    }, 500);
+                                }
+                            }, 500);
 
                             $('#jadwalModal').modal('show');
                         } else {
@@ -662,18 +891,30 @@
                         }
                     },
                     error: function(xhr, status, error) {
-                        alert('Gagal mengambil data: ' + error);
+                        console.error('Error:', error);
+                        alert('Gagal mengambil data jadwal');
                     }
                 });
             });
 
-            // 3. SUBMIT FORM dengan validasi jam
+            // 3. SUBMIT FORM
             $('#jadwalForm').submit(function(e) {
                 e.preventDefault();
 
                 // Validasi jam
                 if (!validateJam()) {
                     alert('Error: Jam selesai melebihi batas waktu (maksimal 20:00)');
+                    return false;
+                }
+
+                // Validasi form
+                if (!$('#modal_mata_kuliah').val()) {
+                    alert('Error: Pilih mata kuliah terlebih dahulu');
+                    return false;
+                }
+
+                if (!$('#modal_dosen_pengampu').val()) {
+                    alert('Error: Pilih dosen pengampu terlebih dahulu');
                     return false;
                 }
 
@@ -688,9 +929,10 @@
                 $.ajax({
                     url: url,
                     type: 'POST',
-                    data: formData + (method === 'PUT' ? '&_method=PUT' : ''),
+                    data: formData,
                     success: function(response) {
-                        $('#saveButton').prop('disabled', false);
+                        $('#saveButton').prop('disabled', false).text(method === 'PUT' ?
+                            'Update' : 'Simpan');
 
                         if (response.success) {
                             alert(response.message);
@@ -701,7 +943,9 @@
                         }
                     },
                     error: function(xhr) {
-                        $('#saveButton').prop('disabled', false);
+                        $('#saveButton').prop('disabled', false).text(method === 'PUT' ?
+                            'Update' : 'Simpan');
+
                         if (xhr.status === 422) {
                             let errors = xhr.responseJSON.errors;
                             let errorMsg = 'Validasi gagal:\n';
@@ -709,32 +953,37 @@
                                 errorMsg += errors[key][0] + '\n';
                             }
                             alert(errorMsg);
+                        } else if (xhr.status === 409) {
+                            alert(xhr.responseJSON.message);
                         } else {
-                            alert('Terjadi kesalahan');
+                            alert('Terjadi kesalahan server');
                         }
                     }
                 });
             });
 
-            // 4. TOMBOL HAPUS - SOLUSI PASTI BEKERJA
-            $(document).on('click', '.delete-btn', function() {
+            // 4. TOMBOL HAPUS
+            $(document).on('click', '.delete-btn', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
                 let id = $(this).data('id');
                 let jadwalText = $(this).closest('.schedule-info').find('.fw-bold').text().trim();
 
-
-                if (confirm('Hapus jadwal: ' + jadwalText + '?')) {
+                if (confirm('Yakin menghapus jadwal: ' + jadwalText + '?')) {
                     $.ajax({
                         url: '/ruangan/delete/' + id,
                         type: 'DELETE',
                         success: function(response) {
                             if (response.success) {
-                                alert('Berhasil dihapus');
+                                alert('Jadwal berhasil dihapus');
                                 location.reload();
                             } else {
                                 alert('Gagal: ' + response.message);
                             }
                         },
-                        error: function() {
+                        error: function(xhr, status, error) {
+                            console.error('Error:', error);
                             alert('Gagal menghapus data');
                         }
                     });
@@ -747,36 +996,36 @@
                 let originalContents = document.body.innerHTML;
 
                 document.body.innerHTML = `
-                <html>
-                    <head>
-                        <title>Jadwal Ruangan - {{ $selectedDate }}</title>
-                        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-                        <style>
-                            body { padding: 20px; }
-                            .table { font-size: 12px; border-collapse: collapse; }
-                            .table th, .table td { border: 1px solid #ddd; padding: 5px; }
-                            .ruangan-cell { min-height: 80px; vertical-align: top; }
-                            .occupied { background-color: #e8f5e9; }
-                            .empty { background-color: #f8f9fa; }
-                            @media print {
-                                .no-print { display: none; }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <h3>Jadwal Ruangan</h3>
-                        <p>Tanggal: {{ $selectedDate }}</p>
-                        ${printContents}
-                        <div class="mt-4 no-print">
-                            <button class="btn btn-primary" onclick="window.close()">Tutup</button>
-                        </div>
-                        <script>
-                            window.onload = function() {
-                                window.print();
-                            }
-                        <\/script>
-                    </body>
-                </html>`;
+            <html>
+                <head>
+                    <title>Jadwal Ruangan - {{ $selectedDate }}</title>
+                    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+                    <style>
+                        body { padding: 20px; }
+                        .table { font-size: 12px; border-collapse: collapse; }
+                        .table th, .table td { border: 1px solid #ddd; padding: 5px; }
+                        .ruangan-cell { min-height: 80px; vertical-align: top; }
+                        .occupied { background-color: #e8f5e9; }
+                        .empty { background-color: #f8f9fa; }
+                        @media print {
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <h3>Jadwal Ruangan</h3>
+                    <p>Tanggal: {{ $selectedDate }}</p>
+                    ${printContents}
+                    <div class="mt-4 no-print">
+                        <button class="btn btn-primary" onclick="window.close()">Tutup</button>
+                    </div>
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                        }
+                    <\/script>
+                </body>
+            </html>`;
 
                 window.print();
                 document.body.innerHTML = originalContents;

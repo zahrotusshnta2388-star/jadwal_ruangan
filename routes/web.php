@@ -14,6 +14,11 @@ Route::get('/ruangan/edit/{id}', [RuanganController::class, 'edit'])->name('ruan
 Route::put('/ruangan/update/{id}', [RuanganController::class, 'update'])->name('ruangan.update');
 Route::delete('/ruangan/delete/{id}', [RuanganController::class, 'destroy'])->name('ruangan.destroy');
 
+// Tambahkan route ini di web.php
+Route::get('/ruangan/get-mata-kuliah', [RuanganController::class, 'getMataKuliah'])->name('ruangan.getMataKuliah');
+Route::get('/ruangan/get-dosen-pengampu', [RuanganController::class, 'getDosenPengampu'])->name('ruangan.getDosenPengampu');
+Route::get('/ruangan/get-teknisi', [RuanganController::class, 'getTeknisi'])->name('ruangan.getTeknisi');
+
 // Home
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/home', [HomeController::class, 'index'])->name('home.index');

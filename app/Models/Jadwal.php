@@ -34,10 +34,11 @@ class Jadwal extends Model
         'dosen_koordinator',
         'team_teaching',
         'teknisi',
+        'dosen_pengampu',
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
+        'tanggal' => 'date:Y-m-d',
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
         'jam_mulai' => 'string',
@@ -46,6 +47,81 @@ class Jadwal extends Model
         'sks' => 'integer',
         'is_template' => 'boolean',
     ];
+
+    public static function getMataKuliahByKelas($prodi, $semester, $golongan)
+    {
+        return self::where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true) // Ambil dari template
+            ->select('mata_kuliah', 'kode_mk', 'dosen_koordinator', 'team_teaching', 'teknisi')
+            ->distinct()
+            ->orderBy('mata_kuliah')
+            ->get();
+    }
+
+    /**
+     * Get semua teknisi dari database
+     */
+    public static function getAllTeknisi()
+    {
+        return self::whereNotNull('teknisi')
+            ->where('teknisi', '!=', '')
+            ->select('teknisi')
+            ->distinct()
+            ->orderBy('teknisi')
+            ->pluck('teknisi')
+            ->toArray();
+    }
+
+    /**
+     * Get dosen pengampu (koordinator + team teaching) untuk mata kuliah tertentu
+     */
+    public static function getDosenPengampuForMataKuliah($mataKuliah, $prodi, $semester, $golongan)
+    {
+        $jadwal = self::where('mata_kuliah', $mataKuliah)
+            ->where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true)
+            ->first();
+
+        if (!$jadwal) {
+            return [];
+        }
+
+        $dosenPengampu = [];
+
+        // Tambahkan dosen koordinator
+        if ($jadwal->dosen_koordinator) {
+            $dosenPengampu[] = $jadwal->dosen_koordinator;
+        }
+
+        // Tambahkan team teaching
+        if ($jadwal->team_teaching) {
+            $team = json_decode($jadwal->team_teaching, true);
+            if (is_array($team)) {
+                $dosenPengampu = array_merge($dosenPengampu, $team);
+            }
+        }
+
+        return array_unique($dosenPengampu);
+    }
+
+    /**
+     * Get teknisi untuk mata kuliah tertentu
+     */
+    public static function getTeknisiForMataKuliah($mataKuliah, $prodi, $semester, $golongan)
+    {
+        $jadwal = self::where('mata_kuliah', $mataKuliah)
+            ->where('prodi', $prodi)
+            ->where('semester', $semester)
+            ->where('golongan', $golongan)
+            ->where('is_template', true)
+            ->first();
+
+        return $jadwal ? $jadwal->teknisi : null;
+    }
 
     /**
      * Import data dari array CSV dengan sistem semester
