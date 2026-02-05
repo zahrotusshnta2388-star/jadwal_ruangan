@@ -428,6 +428,25 @@
                         </div>
                     </div>
 
+                    {{-- Setelah input SKS --}}
+                    <div class="mb-3">
+                        <label class="form-label">Dosen Koordinator</label>
+                        <input type="text" class="form-control" name="dosen_koordinator"
+                            id="modal_dosen_koordinator">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Team Teaching</label>
+                        <textarea class="form-control" name="team_teaching" id="modal_team_teaching" rows="3"
+                            placeholder="Masukkan nama dosen, pisahkan dengan koma"></textarea>
+                        <div class="form-text">Pisahkan dengan koma: Dr. John Doe, M.Si, Dr. Jane Smith</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Teknisi</label>
+                        <input type="text" class="form-control" name="teknisi" id="modal_teknisi">
+                    </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                         <button type="submit" class="btn btn-primary" id="saveButton">Simpan</button>

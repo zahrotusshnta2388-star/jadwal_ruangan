@@ -52,14 +52,12 @@ class Jadwal extends Model
      */
     public static function importFromCSV($data, $tahunAkademik, $semesterAkademik, $tanggalMulai, $tanggalSelesai, $action)
     {
-        set_time_limit(300); // Tambahkan ini
-
+        set_time_limit(300);
         $importedCount = 0;
         $failedRows = [];
 
         \Log::info('=== IMPORT START - ' . count($data) . ' rows ===');
 
-        // Gunakan DB transaction untuk performa
         DB::beginTransaction();
 
         try {
@@ -72,29 +70,101 @@ class Jadwal extends Model
             }
 
             $batchData = [];
-            $batchSize = 100; // Insert per 100 row
+            $batchSize = 100;
 
             foreach ($data as $index => $row) {
                 try {
-                    // Validasi cepat
+                    // Validasi data wajib
                     if (empty($row['Prodi']) || empty($row['Ruang']) || empty($row['Jam']) || empty($row['Hari'])) {
                         $failedRows[] = ['row' => $index + 2, 'reason' => 'Data tidak lengkap'];
                         continue;
                     }
 
-                    // Parse jam (optimized)
+                    // Parse jam
                     $jam = self::parseJamFast($row['Jam']);
 
-                    // VALIDASI PANJANG STRING
-                    if (strlen($jam['mulai']) > 5 || strlen($jam['selesai']) > 5) {
-                        $failedRows[] = ['row' => $index + 2, 'reason' => 'Format jam tidak valid: ' . $row['Jam']];
-                        continue;
-                    }
-
-                    // VALIDASI FORMAT HH:MM
+                    // Validasi format jam
                     if (!preg_match('/^\d{2}:\d{2}$/', $jam['mulai']) || !preg_match('/^\d{2}:\d{2}$/', $jam['selesai'])) {
                         $failedRows[] = ['row' => $index + 2, 'reason' => 'Format jam harus HH:MM: ' . $row['Jam']];
                         continue;
+                    }
+
+                    // **DEBUG: LOG SEMUA KEY YANG ADA DI ROW**
+                    if ($index === 0) {
+                        \Log::info('AVAILABLE KEYS IN FIRST ROW:', array_keys($row));
+                    }
+
+                    // **AMBIL DATA DOSEN KOORDINATOR - PERBAIKAN DI SINI**
+                    // Coba beberapa kemungkinan nama kolom
+                    $dosenKoordinator = '';
+                    $possibleKoordinatorKeys = [
+                        'Koordinator',
+                        'Dosen Koordinator',
+                        'Koordinator MK',
+                        'Koordinator,'
+                    ];
+
+                    foreach ($possibleKoordinatorKeys as $key) {
+                        if (isset($row[$key]) && !empty(trim($row[$key]))) {
+                            $dosenKoordinator = trim($row[$key]);
+                            // Hapus quotes jika ada
+                            $dosenKoordinator = trim($dosenKoordinator, '"\'');
+                            break;
+                        }
+                    }
+
+                    // **AMBIL TEKNISI - PERBAIKAN DI SINI**
+                    $teknisi = '';
+                    $possibleTeknisiKeys = ['Teknisi', 'Teknisi,'];
+                    foreach ($possibleTeknisiKeys as $key) {
+                        if (isset($row[$key]) && !empty(trim($row[$key]))) {
+                            $teknisi = trim($row[$key]);
+                            // Hapus quotes jika ada
+                            $teknisi = trim($teknisi, '"\'');
+                            break;
+                        }
+                    }
+
+                    // **GABUNG TEAM TEACHING 1-4 - PERBAIKAN DI SINI**
+                    $teamTeaching = [];
+                    for ($i = 1; $i <= 4; $i++) {
+                        // Coba beberapa variasi key
+                        $keyVariants = [
+                            "Team Taching {$i}",
+                            "Team Taching {$i},",
+                            "Team Teaching {$i}",
+                            "Team Teaching {$i},"
+                        ];
+
+                        foreach ($keyVariants as $key) {
+                            if (isset($row[$key]) && !empty(trim($row[$key]))) {
+                                $teamMember = trim($row[$key]);
+                                // Hapus koma di akhir jika ada
+                                $teamMember = rtrim($teamMember, ',');
+                                // Hapus quotes jika ada
+                                $teamMember = trim($teamMember, '"\'');
+                                if (!empty($teamMember)) {
+                                    $teamTeaching[] = $teamMember;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    // **GABUNG TEAM TEACHING MENJADI STRING JSON**
+                    $teamTeachingJson = !empty($teamTeaching) ? json_encode($teamTeaching) : null;
+
+                    // **DEBUG: LOG DATA YANG DIAMBIL**
+                    if ($index === 0) {
+                        \Log::info('EXTRACTED DATA FROM FIRST ROW:', [
+                            'Dosen Koordinator found' => !empty($dosenKoordinator),
+                            'Dosen Koordinator value' => $dosenKoordinator,
+                            'Teknisi found' => !empty($teknisi),
+                            'Teknisi value' => $teknisi,
+                            'Team Teaching count' => count($teamTeaching),
+                            'Team Teaching values' => $teamTeaching,
+                            'Team Teaching JSON' => $teamTeachingJson
+                        ]);
                     }
 
                     // Siapkan data untuk batch insert
@@ -115,6 +185,12 @@ class Jadwal extends Model
                         'kode_mk' => $row['Kode'] ?? '',
                         'mata_kuliah' => $row['MK'] ?? '',
                         'sks' => intval($row['SKS'] ?? 1),
+
+                        // **DATA BARU DENGAN VALUE YANG SUDAH DIPEROLEH**
+                        'dosen_koordinator' => $dosenKoordinator ?: null,
+                        'team_teaching' => $teamTeachingJson,
+                        'teknisi' => $teknisi ?: null,
+
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -124,35 +200,46 @@ class Jadwal extends Model
                     // Batch insert setiap 100 row
                     if (count($batchData) >= $batchSize) {
                         self::insert($batchData);
-                        $batchData = []; // Reset
+                        $batchData = [];
                         \Log::info("Batch inserted: {$batchSize} rows");
                     }
                 } catch (\Exception $e) {
                     $failedRows[] = ['row' => $index + 2, 'reason' => $e->getMessage()];
+                    \Log::error("Error in row {$index}: " . $e->getMessage());
                 }
             }
 
             // Insert sisa data
             if (!empty($batchData)) {
                 self::insert($batchData);
+                \Log::info("Inserted remaining: " . count($batchData) . " rows");
             }
 
             DB::commit();
 
             \Log::info("=== IMPORT COMPLETE === Success: {$importedCount}, Failed: " . count($failedRows));
 
-            // Generate jadwal riil (tunda dulu, terlalu berat)
-            // $generatedCount = self::generateJadwalRiil($tahunAkademik, $semesterAkademik);
+            // LOG SAMPLE DATA YANG DIINSERT
+            if ($importedCount > 0) {
+                $sample = self::where('tahun_akademik', $tahunAkademik)
+                    ->where('semester_akademik', $semesterAkademik)
+                    ->where('is_template', true)
+                    ->limit(2)
+                    ->get(['dosen_koordinator', 'team_teaching', 'teknisi']);
+
+                \Log::info('SAMPLE INSERTED DATA (checking teaching columns):', $sample->toArray());
+            }
 
             return [
                 'success_count' => $importedCount,
                 'failed_count' => count($failedRows),
-                'failed_rows' => array_slice($failedRows, 0, 20), // Limit output
+                'failed_rows' => array_slice($failedRows, 0, 20),
                 'total_rows' => count($data)
             ];
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Import failed: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
             throw $e;
         }
     }
@@ -271,7 +358,7 @@ class Jadwal extends Model
                 $templateDay = $dayMap[$template->hari] ?? null;
 
                 if ($templateDay && $currentDate->dayOfWeek === $templateDay) {
-                    // Buat jadwal riil
+                    // Buat jadwal riil dengan SEMUA data termasuk teaching
                     self::create([
                         'tahun_akademik' => $template->tahun_akademik,
                         'semester_akademik' => $template->semester_akademik,
@@ -284,16 +371,18 @@ class Jadwal extends Model
                         'jam_mulai' => $template->jam_mulai,
                         'jam_selesai' => $template->jam_selesai,
                         'ruangan' => $template->ruangan,
-                        'keterangan' => $template->keterangan,
                         'prodi' => $template->prodi,
                         'semester' => $template->semester,
                         'golongan' => $template->golongan,
                         'kode_mk' => $template->kode_mk,
                         'mata_kuliah' => $template->mata_kuliah,
                         'sks' => $template->sks,
+
+                        // **DATA TEACHING DARI TEMPLATE**
                         'dosen_koordinator' => $template->dosen_koordinator,
                         'team_teaching' => $template->team_teaching,
                         'teknisi' => $template->teknisi,
+
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
@@ -441,5 +530,48 @@ class Jadwal extends Model
     public function getJamDisplayAttribute()
     {
         return substr($this->jam_mulai, 0, 5) . ' - ' . substr($this->jam_selesai, 0, 5);
+    }
+
+    /**
+     * Accessor untuk team teaching (array dari JSON)
+     */
+    public function getTeamTeachingArrayAttribute()
+    {
+        if ($this->team_teaching && !empty($this->team_teaching)) {
+            $decoded = json_decode($this->team_teaching, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+        return [];
+    }
+
+    /**
+     * Accessor untuk menampilkan team teaching sebagai string
+     */
+    public function getTeamTeachingDisplayAttribute()
+    {
+        $array = $this->team_teaching_array;
+        return !empty($array) ? implode(', ', $array) : '-';
+    }
+
+    /**
+     * Accessor untuk display lengkap
+     */
+    public function getInfoLengkapAttribute()
+    {
+        $info = $this->mata_kuliah;
+
+        if ($this->dosen_koordinator) {
+            $info .= "\nKoordinator: " . $this->dosen_koordinator;
+        }
+
+        if ($this->team_teaching_array) {
+            $info .= "\nTeam: " . $this->team_teaching_display;
+        }
+
+        if ($this->teknisi) {
+            $info .= "\nTeknisi: " . $this->teknisi;
+        }
+
+        return $info;
     }
 }

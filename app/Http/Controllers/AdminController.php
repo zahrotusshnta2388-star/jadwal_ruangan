@@ -185,17 +185,31 @@ class AdminController extends Controller
 
         // Parse menggunakan str_getcsv
         $headers = str_getcsv($firstLine, $delimiter);
-        \Log::info('Original Headers:', $headers);
+        \Log::info('Original Headers from CSV:', $headers);
 
-        // Clean headers - PERBAIKAN DI SINI
+        // Clean headers - PERBAIKAN UTAMA DI SINI
         $headers = array_map(function ($header) {
             $header = trim($header, " \t\n\r\0\x0B\"'");
-            // Fix common typos in headers
-            $header = str_replace('Taching', 'Teaching', $header); // Fix typo
+
+            // Fix specific headers dari CSV Anda
+            $header = str_replace('Dosen Koordinator', 'Koordinator', $header);
+            $header = str_replace('Team Taching', 'Team Taching', $header); // Biarkan typo "Taching"
+
+            // Handle 2 kolom Teknisi - ambil yang pertama
+            if ($header === 'Teknisi,' && isset($headers[array_search($header, $headers) + 1])) {
+                // Skip yang pertama jika ada duplikat
+                return null;
+            }
+
             return $header;
         }, $headers);
 
-        \Log::info('Cleaned Headers:', $headers);
+        // Hapus header null
+        $headers = array_filter($headers, function ($header) {
+            return $header !== null;
+        });
+
+        \Log::info('Cleaned Headers after fix:', array_values($headers));
 
         // Parse data rows
         for ($i = 1; $i < count($lines); $i++) {
@@ -221,21 +235,23 @@ class AdminController extends Controller
             // Combine dengan headers
             $rowData = array_combine($headers, $row);
 
-            // Debug first row
+            // Debug first row untuk verifikasi
             if ($i === 1) {
-                \Log::info('First data row after combine:', $rowData);
-                \Log::info('Available keys:', array_keys($rowData));
+                \Log::info('FIRST ROW DATA (for debugging):', $rowData);
+                \Log::info('Checking specific keys:');
+                \Log::info('  Koordinator exists: ' . (isset($rowData['Koordinator']) ? 'YES' : 'NO'));
+                \Log::info('  Koordinator value: ' . ($rowData['Koordinator'] ?? 'NULL'));
+                \Log::info('  Team Taching 1 exists: ' . (isset($rowData['Team Taching 1']) ? 'YES' : 'NO'));
+                \Log::info('  Team Taching 1 value: ' . ($rowData['Team Taching 1'] ?? 'NULL'));
+                \Log::info('  Teknisi exists: ' . (isset($rowData['Teknisi']) ? 'YES' : 'NO'));
+                \Log::info('  Teknisi value: ' . ($rowData['Teknisi'] ?? 'NULL'));
             }
 
             $data[] = $rowData;
         }
-        \Log::info("CSV Parsing Results:");
-        \Log::info("Headers found: " . implode(', ', $headers));
-        \Log::info("Total rows parsed: " . count($data));
 
-        if (count($data) > 0) {
-            \Log::info("Sample first row:", $data[0]);
-        }
+        \Log::info("CSV Parsing Results:");
+        \Log::info("Total rows parsed: " . count($data));
 
         return $data;
     }

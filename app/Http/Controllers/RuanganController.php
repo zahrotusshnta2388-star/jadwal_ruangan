@@ -13,8 +13,9 @@ class RuanganController extends Controller
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
         $kelas = $request->input('kelas');
 
-        // 1. GET DATA BERDASARKAN TANGGAL, BUKAN HARI
+        // 1. GET DATA BERDASARKAN TANGGAL
         $query = Jadwal::where('tanggal', $selectedDate)
+            ->where('is_template', false) // Hanya jadwal riil
             ->orderBy('ruangan')
             ->orderBy('jam_mulai');
 
