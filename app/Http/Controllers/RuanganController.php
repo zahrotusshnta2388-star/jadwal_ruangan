@@ -12,6 +12,8 @@ class RuanganController extends Controller
     {
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
         $kelas = $request->input('kelas');
+        $dosenPengampu = $request->input('dosen_pengampu');
+        $teknisi = $request->input('teknisi');
 
         // 1. GET DATA BERDASARKAN TANGGAL
         $query = Jadwal::where('tanggal', $selectedDate)
@@ -30,6 +32,16 @@ class RuanganController extends Controller
                     ->where('semester', $semester)
                     ->where('golongan', $golongan);
             }
+        }
+
+        // FILTER DOSEN PENGAMPU JIKA ADA
+        if ($dosenPengampu) {
+            $query->where('dosen_pengampu', 'like', '%' . $dosenPengampu . '%');
+        }
+
+        // FILTER TEKNISI JIKA ADA
+        if ($teknisi) {
+            $query->where('teknisi', 'like', '%' . $teknisi . '%');
         }
 
         $jadwals = $query->get()->unique(function ($item) {
@@ -92,12 +104,33 @@ class RuanganController extends Controller
             })
             ->toArray();
 
-        // 7. RETURN VIEW
+        // 7. AMBIL DAFTAR DOSEN PENGAMPU UNTUK FILTER
+        $allDosen = Jadwal::whereNotNull('dosen_pengampu')
+            ->where('dosen_pengampu', '!=', '')
+            ->select('dosen_pengampu')
+            ->distinct()
+            ->orderBy('dosen_pengampu')
+            ->pluck('dosen_pengampu')
+            ->toArray();
+
+        // 8. AMBIL DAFTAR TEKNISI UNTUK FILTER
+        $allTeknisi = Jadwal::whereNotNull('teknisi')
+            ->where('teknisi', '!=', '')
+            ->select('teknisi')
+            ->distinct()
+            ->orderBy('teknisi')
+            ->pluck('teknisi')
+            ->toArray();
+
+        // 9. RETURN VIEW
         return view('ruangan.index', [
             'selectedDate' => $selectedDate,
             'kelas' => $kelas,
+            'dosen_pengampu' => $dosenPengampu,
+            'teknisi' => $teknisi,
             'allKelas' => $allKelas,
-            'gedung' => '',
+            'allDosen' => $allDosen,
+            'allTeknisi' => $allTeknisi,
             'jadwals' => $jadwals,
             'ruangans' => $ruangans,
             'timeSlots' => $timeSlots,

@@ -135,25 +135,6 @@
 
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="gedung" class="form-label">
-                                        <i class="bi bi-building"></i> Filter Gedung
-                                    </label>
-                                    <select class="form-select" id="gedung" name="gedung">
-                                        <option value="">Semua Gedung</option>
-                                        <option value="3" {{ request('gedung') == '3' ? 'selected' : '' }}>Gedung 3
-                                        </option>
-                                        <option value="4" {{ request('gedung') == '4' ? 'selected' : '' }}>Gedung 4
-                                        </option>
-                                        <option value="F" {{ request('gedung') == 'F' ? 'selected' : '' }}>Gedung F
-                                        </option>
-                                        <option value="Lab" {{ request('gedung') == 'Lab' ? 'selected' : '' }}>
-                                            Laboratorium</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <div class="mb-3">
                                     <label for="kelas" class="form-label">
                                         <i class="bi bi-people"></i> Filter Kelas
                                     </label>
@@ -171,15 +152,34 @@
 
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="semester" class="form-label">
-                                        <i class="bi bi-journal-bookmark"></i> Semester
+                                    <label for="dosen_pengampu" class="form-label">
+                                        <i class="bi bi-person"></i> Filter Dosen Pengampu
                                     </label>
-                                    <select class="form-select" id="semester" name="semester">
-                                        <option value="">Semua Semester</option>
-                                        <option value="Ganjil" {{ request('semester') == 'Ganjil' ? 'selected' : '' }}>
-                                            Ganjil</option>
-                                        <option value="Genap" {{ request('semester') == 'Genap' ? 'selected' : '' }}>Genap
-                                        </option>
+                                    <select class="form-select" id="dosen_pengampu" name="dosen_pengampu">
+                                        <option value="">Semua Dosen</option>
+                                        @foreach ($allDosen ?? [] as $dosen)
+                                            <option value="{{ $dosen }}"
+                                                {{ request('dosen_pengampu') == $dosen ? 'selected' : '' }}>
+                                                {{ $dosen }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="teknisi" class="form-label">
+                                        <i class="bi bi-tools"></i> Filter Teknisi
+                                    </label>
+                                    <select class="form-select" id="teknisi" name="teknisi">
+                                        <option value="">Semua Teknisi</option>
+                                        @foreach ($allTeknisi ?? [] as $teknisi)
+                                            <option value="{{ $teknisi }}"
+                                                {{ request('teknisi') == $teknisi ? 'selected' : '' }}>
+                                                {{ $teknisi }}
+                                            </option>
+                                        @endforeach
                                     </select>
                                 </div>
                             </div>
@@ -214,6 +214,12 @@
                             Tanggal: {{ $selectedDate }}
                             @if ($kelas)
                                 | Kelas: <strong>{{ $kelas }}</strong>
+                            @endif
+                            @if ($dosen_pengampu)
+                                | Dosen: <strong>{{ $dosen_pengampu }}</strong>
+                            @endif
+                            @if ($teknisi)
+                                | Teknisi: <strong>{{ $teknisi }}</strong>
                             @endif
                         </small>
                     </div>
@@ -254,7 +260,16 @@
                                                 @endphp
                                                 <td class="ruangan-cell text-center {{ $jadwal ? 'occupied' : 'empty' }}"
                                                     data-bs-toggle="{{ $jadwal ? 'tooltip' : '' }}"
-                                                    title="{{ $jadwal ? $jadwal->prodi . ' ' . $jadwal->semester . $jadwal->golongan . ' - ' . $jadwal->mata_kuliah : 'Kosong' }}">
+                                                    title="{{ $jadwal
+                                                        ? $jadwal->prodi .
+                                                            ' ' .
+                                                            $jadwal->semester .
+                                                            $jadwal->golongan .
+                                                            ' - ' .
+                                                            $jadwal->mata_kuliah .
+                                                            (isset($jadwal->dosen_pengampu) ? '\nDosen: ' . $jadwal->dosen_pengampu : '') .
+                                                            (isset($jadwal->teknisi) ? '\nTeknisi: ' . $jadwal->teknisi : '')
+                                                        : 'Kosong' }}">
                                                     @if ($jadwal)
                                                         <div class="schedule-info" style="line-height: 1.1;">
                                                             <small class="d-block fw-bold" style="font-size: 0.8rem;">
@@ -270,6 +285,20 @@
                                                                 {{ substr($jadwal->jam_mulai, 0, 5) }} -
                                                                 {{ substr($jadwal->jam_selesai, 0, 5) }}
                                                             </small>
+
+                                                            @if ($dosen_pengampu || $teknisi)
+                                                                <small class="d-block text-secondary"
+                                                                    style="font-size: 0.6rem;">
+                                                                    @if ($jadwal->dosen_pengampu)
+                                                                        <i class="bi bi-person"></i>
+                                                                        {{ Str::limit($jadwal->dosen_pengampu, 20) }}
+                                                                    @endif
+                                                                    @if ($jadwal->teknisi)
+                                                                        <br><i class="bi bi-tools"></i>
+                                                                        {{ $jadwal->teknisi }}
+                                                                    @endif
+                                                                </small>
+                                                            @endif
 
                                                             {{-- ACTION BUTTONS --}}
                                                             <div class="mt-1 action-buttons">
@@ -289,8 +318,6 @@
                                                                     <i class="bi bi-trash"></i>
                                                                 </button>
                                                             </div>
-
-
                                                         </div>
                                                     @else
                                                         {{-- CELL KOSONG --}}
