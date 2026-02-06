@@ -98,30 +98,74 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container">
             <a class="navbar-brand" href="{{ route('home') }}">
-                <i class="bi bi-calendar-week"></i> Jadwal Ruangan
+                <i class="bi bi-calendar-week"></i> JTI Schedule
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">
-                            <i class="bi bi-house"></i> Beranda
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('ruangan.*') ? 'active' : '' }}"
+                        <a class="nav-link {{ request()->routeIs('ruangan.index') ? 'active' : '' }}"
                             href="{{ route('ruangan.index') }}">
-                            <i class="bi bi-building"></i> Ruangan
+                            <i class="bi bi-table"></i> Jadwal Ruangan
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link {{ request()->routeIs('admin.*') ? 'active' : '' }}"
-                            href="{{ route('admin.index') }}">
-                            <i class="bi bi-gear"></i> Admin
-                        </a>
-                    </li>
+                    @auth
+
+                        @if (Auth::user()->role === 'admin')
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('admin.upload') ? 'active' : '' }}"
+                                    href="{{ route('admin.upload') }}">
+                                    <i class="bi bi-upload"></i> Upload CSV
+                                </a>
+                            </li>
+                        @endif
+                    @endauth
+                </ul>
+
+                <!-- Right side: User menu -->
+                <ul class="navbar-nav ms-auto">
+                    @auth
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                                <i class="bi bi-person-circle"></i> {{ Auth::user()->name }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end user-dropdown">
+                                <li>
+                                    <div class="user-info">
+                                        <strong>{{ Auth::user()->name }}</strong><br>
+                                        <small class="text-muted">{{ Auth::user()->email }}</small><br>
+                                        <span class="badge bg-success">{{ Auth::user()->role }}</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bi bi-person"></i> Profil
+                                    </a>
+                                </li>
+                                <li>
+                                    <form method="POST" action="{{ route('logout') }}" id="logout-form">
+                                        @csrf
+                                        <a class="dropdown-item" href="#"
+                                            onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                                            <i class="bi bi-box-arrow-right"></i> Logout
+                                        </a>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    @else
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('login') }}">
+                                <i class="bi bi-box-arrow-in-right"></i> Login Admin
+                            </a>
+                        </li>
+                    @endauth
                 </ul>
             </div>
         </div>

@@ -271,7 +271,8 @@
                                                             (isset($jadwal->teknisi) ? '\nTeknisi: ' . $jadwal->teknisi : '')
                                                         : 'Kosong' }}">
                                                     @if ($jadwal)
-                                                        <div class="schedule-info" style="line-height: 1.1;">
+                                                        <div class="schedule-info detail-btn" data-id="{{ $jadwal->id }}"
+                                                            style="line-height: 1.1;">
                                                             <small class="d-block fw-bold" style="font-size: 0.8rem;">
                                                                 {{ $jadwal->prodi }}
                                                                 {{ $jadwal->semester }}{{ $jadwal->golongan }}
@@ -286,51 +287,54 @@
                                                                 {{ substr($jadwal->jam_selesai, 0, 5) }}
                                                             </small>
 
-                                                            @if ($dosen_pengampu || $teknisi)
+                                                            {{-- TAMPILKAN DOSEN PENGAMPU --}}
+                                                            @if ($jadwal->dosen_pengampu)
                                                                 <small class="d-block text-secondary"
                                                                     style="font-size: 0.6rem;">
-                                                                    @if ($jadwal->dosen_pengampu)
-                                                                        <i class="bi bi-person"></i>
-                                                                        {{ Str::limit($jadwal->dosen_pengampu, 20) }}
-                                                                    @endif
-                                                                    @if ($jadwal->teknisi)
-                                                                        <br><i class="bi bi-tools"></i>
-                                                                        {{ $jadwal->teknisi }}
-                                                                    @endif
+                                                                    <i class="bi bi-person"></i>
+                                                                    {{ Str::limit($jadwal->dosen_pengampu, 25) }}
+                                                                </small>
+                                                            @endif
+
+                                                            {{-- TAMPILKAN TEKNISI --}}
+                                                            @if ($jadwal->teknisi)
+                                                                <small class="d-block text-info" style="font-size: 0.6rem;">
+                                                                    <i class="bi bi-tools"></i>
+                                                                    {{ Str::limit($jadwal->teknisi, 20) }}
                                                                 </small>
                                                             @endif
 
                                                             {{-- ACTION BUTTONS --}}
                                                             <div class="mt-1 action-buttons">
-                                                                <button class="btn btn-sm btn-outline-info detail-btn"
-                                                                    data-id="{{ $jadwal->id }}" data-bs-toggle="tooltip"
-                                                                    title="Lihat detail jadwal">
-                                                                    <i class="bi bi-eye"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-outline-warning edit-btn"
-                                                                    data-id="{{ $jadwal->id }}"
-                                                                    data-bs-toggle="tooltip" title="Edit jadwal">
-                                                                    <i class="bi bi-pencil"></i>
-                                                                </button>
-                                                                <button class="btn btn-sm btn-outline-danger delete-btn"
-                                                                    data-id="{{ $jadwal->id }}"
-                                                                    data-bs-toggle="tooltip" title="Hapus jadwal">
-                                                                    <i class="bi bi-trash"></i>
-                                                                </button>
+
+                                                                @auth
+                                                                    <button class="btn btn-sm btn-outline-warning edit-btn"
+                                                                        data-id="{{ $jadwal->id }}" data-bs-toggle="tooltip"
+                                                                        title="Edit jadwal">
+                                                                        <i class="bi bi-pencil"></i>
+                                                                    </button>
+                                                                    <button class="btn btn-sm btn-outline-danger delete-btn"
+                                                                        data-id="{{ $jadwal->id }}"
+                                                                        data-bs-toggle="tooltip" title="Hapus jadwal">
+                                                                        <i class="bi bi-trash"></i>
+                                                                    </button>
+                                                                @endauth
                                                             </div>
                                                         </div>
                                                     @else
                                                         {{-- CELL KOSONG --}}
                                                         <div class="empty-cell">
                                                             <span class="text-muted">-</span>
-                                                            <div class="mt-1">
-                                                                <button class="btn btn-sm btn-outline-success add-btn"
-                                                                    data-ruangan="{{ $ruangan }}"
-                                                                    data-jam="{{ $timeSlot }}"
-                                                                    data-bs-toggle="tooltip" title="Tambah jadwal">
-                                                                    <i class="bi bi-plus"></i> Tambah
-                                                                </button>
-                                                            </div>
+                                                            @auth
+                                                                <div class="mt-1">
+                                                                    <button class="btn btn-sm btn-outline-success add-btn"
+                                                                        data-ruangan="{{ $ruangan }}"
+                                                                        data-jam="{{ $timeSlot }}"
+                                                                        data-bs-toggle="tooltip" title="Tambah jadwal">
+                                                                        <i class="bi bi-plus"></i> Tambah
+                                                                    </button>
+                                                                </div>
+                                                            @endauth
                                                         </div>
                                                     @endif
                                                 </td>
