@@ -174,10 +174,10 @@
                                     </label>
                                     <select class="form-select" id="teknisi" name="teknisi">
                                         <option value="">Semua Teknisi</option>
-                                        @foreach ($allTeknisi ?? [] as $teknisi)
-                                            <option value="{{ $teknisi }}"
-                                                {{ request('teknisi') == $teknisi ? 'selected' : '' }}>
-                                                {{ $teknisi }}
+                                        @foreach ($allTeknisi ?? [] as $tech)
+                                            <option value="{{ $tech }}"
+                                                {{ request('teknisi') == $tech ? 'selected' : '' }}>
+                                                {{ $tech }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -212,14 +212,14 @@
                         </h5>
                         <small class="d-block">
                             Tanggal: {{ $selectedDate }}
-                            @if ($kelas)
-                                | Kelas: <strong>{{ $kelas }}</strong>
+                            @if (request('kelas'))
+                                | Kelas: <strong>{{ request('kelas') }}</strong>
                             @endif
-                            @if ($dosen_pengampu)
-                                | Dosen: <strong>{{ $dosen_pengampu }}</strong>
+                            @if (request('dosen_pengampu'))
+                                | Dosen: <strong>{{ request('dosen_pengampu') }}</strong>
                             @endif
-                            @if ($teknisi)
-                                | Teknisi: <strong>{{ $teknisi }}</strong>
+                            @if (request('teknisi'))
+                                | Teknisi: <strong>{{ request('teknisi') }}</strong>
                             @endif
                         </small>
                     </div>

@@ -13,7 +13,7 @@ class RuanganController extends Controller
         $selectedDate = $request->input('tanggal', date('Y-m-d'));
         $kelas = $request->input('kelas');
         $dosenPengampu = $request->input('dosen_pengampu');
-        $teknisi = $request->input('teknisi');
+        $teknisi = $request->input('teknisi'); // Simpan langsung ke $teknisi
 
         // 1. GET DATA BERDASARKAN TANGGAL
         $query = Jadwal::where('tanggal', $selectedDate)
@@ -39,7 +39,7 @@ class RuanganController extends Controller
             $query->where('dosen_pengampu', 'like', '%' . $dosenPengampu . '%');
         }
 
-        // FILTER TEKNISI JIKA ADA
+        // FILTER TEKNISI JIKA ADA - PAKAI VARIABLE $teknisi BUKAN $teknisiFilter
         if ($teknisi) {
             $query->where('teknisi', 'like', '%' . $teknisi . '%');
         }
@@ -47,6 +47,7 @@ class RuanganController extends Controller
         $jadwals = $query->get()->unique(function ($item) {
             return $item->ruangan . '|' . $item->jam_mulai . '|' . $item->jam_selesai;
         });
+
 
         // 2. GET ROOMS
         $ruangansFromData = $jadwals->pluck('ruangan')->unique()->sort()->values()->toArray();
@@ -122,12 +123,12 @@ class RuanganController extends Controller
             ->pluck('teknisi')
             ->toArray();
 
-        // 9. RETURN VIEW
+        // 9. RETURN VIEW - pastikan kirim $teknisi
         return view('ruangan.index', [
             'selectedDate' => $selectedDate,
             'kelas' => $kelas,
             'dosen_pengampu' => $dosenPengampu,
-            'teknisi' => $teknisi,
+            'teknisi' => $teknisi, // Ini yang akan ditampilkan di view
             'allKelas' => $allKelas,
             'allDosen' => $allDosen,
             'allTeknisi' => $allTeknisi,
