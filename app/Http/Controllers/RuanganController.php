@@ -364,6 +364,22 @@ class RuanganController extends Controller
         return view('ruangan.create');
     }
 
+    public function detail($id)
+    {
+        $jadwal = Jadwal::find($id);
+
+        if (!$jadwal) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $jadwal
+        ]);
+    }
     private function getHariIndonesia($date)
     {
         $hariInggris = date('l', strtotime($date));

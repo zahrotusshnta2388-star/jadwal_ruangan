@@ -41,6 +41,72 @@
         .empty:hover {
             background-color: #f0f8ff !important;
         }
+
+        .action-buttons {
+            margin-top: 5px;
+            padding-top: 5px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .action-buttons .btn-sm {
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            margin: 2px;
+        }
+
+        .action-buttons .detail-btn {
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+        }
+
+        .action-buttons .detail-btn:hover {
+            background-color: #3a7bc8;
+        }
+
+        .ruangan-cell {
+            min-height: 120px;
+            vertical-align: top !important;
+            padding: 8px 5px !important;
+        }
+
+        .ruangan-cell:hover .action-buttons {
+            opacity: 1 !important;
+        }
+
+        .occupied {
+            background-color: #e8f5e9 !important;
+            border-left: 3px solid #4caf50 !important;
+        }
+
+        .empty {
+            background-color: #f8f9fa !important;
+        }
+
+        .empty:hover {
+            background-color: #f0f8ff !important;
+        }
+
+        /* Modal detail info */
+        .detail-info {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .detail-info:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+            min-width: 120px;
+            display: inline-block;
+        }
+
+        .detail-value {
+            color: #333;
+        }
     </style>
 @endpush
 
@@ -207,9 +273,14 @@
 
                                                             {{-- ACTION BUTTONS --}}
                                                             <div class="mt-1 action-buttons">
-                                                                <button class="btn btn-sm btn-outline-warning edit-btn"
+                                                                <button class="btn btn-sm btn-outline-info detail-btn"
                                                                     data-id="{{ $jadwal->id }}" data-bs-toggle="tooltip"
-                                                                    title="Edit jadwal">
+                                                                    title="Lihat detail jadwal">
+                                                                    <i class="bi bi-eye"></i>
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-warning edit-btn"
+                                                                    data-id="{{ $jadwal->id }}"
+                                                                    data-bs-toggle="tooltip" title="Edit jadwal">
                                                                     <i class="bi bi-pencil"></i>
                                                                 </button>
                                                                 <button class="btn btn-sm btn-outline-danger delete-btn"
@@ -218,6 +289,8 @@
                                                                     <i class="bi bi-trash"></i>
                                                                 </button>
                                                             </div>
+
+
                                                         </div>
                                                     @else
                                                         {{-- CELL KOSONG --}}
@@ -468,6 +541,81 @@
             </div>
         </div>
     </div>
+
+    {{-- MODAL DETAIL JADWAL --}}
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="detailModalLabel">
+                        <i class="bi bi-info-circle"></i> Detail Jadwal
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="detail-info">
+                        <span class="detail-label">Tanggal:</span>
+                        <span class="detail-value" id="detail_tanggal"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Hari:</span>
+                        <span class="detail-value" id="detail_hari"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Ruangan:</span>
+                        <span class="detail-value" id="detail_ruangan"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Jam:</span>
+                        <span class="detail-value" id="detail_jam"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Kelas:</span>
+                        <span class="detail-value" id="detail_kelas"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Mata Kuliah:</span>
+                        <span class="detail-value" id="detail_mata_kuliah"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Kode MK:</span>
+                        <span class="detail-value" id="detail_kode_mk"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">SKS:</span>
+                        <span class="detail-value" id="detail_sks"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Dosen Koordinator:</span>
+                        <span class="detail-value" id="detail_dosen_koordinator"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Dosen Pengampu:</span>
+                        <span class="detail-value" id="detail_dosen_pengampu"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Team Teaching:</span>
+                        <span class="detail-value" id="detail_team_teaching"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Teknisi:</span>
+                        <span class="detail-value" id="detail_teknisi"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Semester Akademik:</span>
+                        <span class="detail-value" id="detail_semester_akademik"></span>
+                    </div>
+                    <div class="detail-info">
+                        <span class="detail-label">Tahun Akademik:</span>
+                        <span class="detail-value" id="detail_tahun_akademik"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('scripts')
@@ -674,6 +822,74 @@
                 }
             });
         }
+
+        // 5. TOMBOL DETAIL - Lihat informasi lengkap
+        $(document).on('click', '.detail-btn', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            let id = $(this).data('id');
+
+            $.ajax({
+                url: '/ruangan/detail/' + id,
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success && response.data) {
+                        let data = response.data;
+
+                        // Format jam
+                        let jamMulai = data.jam_mulai;
+                        let jamSelesai = data.jam_selesai;
+                        if (jamMulai && jamMulai.length > 5) {
+                            jamMulai = jamMulai.substring(0, 5);
+                        }
+                        if (jamSelesai && jamSelesai.length > 5) {
+                            jamSelesai = jamSelesai.substring(0, 5);
+                        }
+
+                        // Isi data ke modal detail
+                        $('#detail_tanggal').text(data.tanggal || '-');
+                        $('#detail_hari').text(data.hari || '-');
+                        $('#detail_ruangan').text(data.ruangan || '-');
+                        $('#detail_jam').text((jamMulai || '-') + ' - ' + (jamSelesai || '-'));
+                        $('#detail_kelas').text((data.prodi || '') + ' ' + (data.semester || '') + (data
+                            .golongan || ''));
+                        $('#detail_mata_kuliah').text(data.mata_kuliah || '-');
+                        $('#detail_kode_mk').text(data.kode_mk || '-');
+                        $('#detail_sks').text(data.sks || '-');
+                        $('#detail_dosen_koordinator').text(data.dosen_koordinator || '-');
+                        $('#detail_dosen_pengampu').text(data.dosen_pengampu || '-');
+
+                        // Handle team teaching (bisa array atau string)
+                        let teamTeaching = data.team_teaching || '-';
+                        if (teamTeaching && typeof teamTeaching === 'string') {
+                            try {
+                                let parsed = JSON.parse(teamTeaching);
+                                if (Array.isArray(parsed) && parsed.length > 0) {
+                                    teamTeaching = parsed.join(', ');
+                                }
+                            } catch (e) {
+                                // Biarkan sebagai string
+                            }
+                        }
+                        $('#detail_team_teaching').text(teamTeaching);
+
+                        $('#detail_teknisi').text(data.teknisi || '-');
+                        $('#detail_semester_akademik').text(data.semester_akademik || '-');
+                        $('#detail_tahun_akademik').text(data.tahun_akademik || '-');
+
+                        $('#detailModal').modal('show');
+                    } else {
+                        alert('Error: ' + (response.message || 'Data tidak ditemukan'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error:', error);
+                    alert('Gagal mengambil data detail jadwal');
+                }
+            });
+        });
 
         $(document).ready(function() {
             // Pastikan CSRF token tersedia

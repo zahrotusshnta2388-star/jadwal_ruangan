@@ -13,6 +13,7 @@ Route::post('/ruangan/store', [RuanganController::class, 'store'])->name('ruanga
 Route::get('/ruangan/edit/{id}', [RuanganController::class, 'edit'])->name('ruangan.edit');
 Route::put('/ruangan/update/{id}', [RuanganController::class, 'update'])->name('ruangan.update');
 Route::delete('/ruangan/delete/{id}', [RuanganController::class, 'destroy'])->name('ruangan.destroy');
+Route::get('/ruangan/detail/{id}', [RuanganController::class, 'detail'])->name('ruangan.detail');
 
 // Tambahkan route ini di web.php
 Route::get('/ruangan/get-mata-kuliah', [RuanganController::class, 'getMataKuliah'])->name('ruangan.getMataKuliah');
